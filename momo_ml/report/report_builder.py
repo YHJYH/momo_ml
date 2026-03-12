@@ -1,3 +1,4 @@
+# momo_ml/report/report_builder.py
 
 from __future__ import annotations
 
@@ -75,7 +76,10 @@ class ReportBuilder:
         cap_html = f"<div style='text-align:center;margin-top:5px;color:#555;'>{_escape_html(caption)}</div>" if caption else ""
         return (
             f"<div style='margin:15px 0;'>"
-            f"<img src='{src}' style='max-width:100%;border:1px solid        )
+            f"{src}"
+            f"{cap_html}"
+            f"</div>"
+        )
 
     # -----------------------------------------------------------------
     # Rendering core sections
