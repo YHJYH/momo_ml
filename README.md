@@ -1,3 +1,6 @@
+!CI
+!PyPI version
+
 # momo-ml
 
 **momo-ml** 是一个用于生产环境的 **模型监控（MOdel MOnitoring for ML）** 工具库，旨在提供系统化、可扩展、可自动化的模型质量监测能力。  
