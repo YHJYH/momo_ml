@@ -40,3 +40,42 @@
 
 ```bash
 pip install momo-ml
+
+
+momo-ml/
+├── momo_ml/
+│   ├── __init__.py
+│   ├── monitor/
+│   │   ├── __init__.py
+│   │   ├── model_monitor.py        # 主监控逻辑入口
+│   │   ├── drift_detector.py       # drift 检测引擎
+│   │   ├── performance.py          # 性能指标相关
+│   │   ├── prediction.py           # 预测漂移检测
+│   │   └── data_drift.py           # 数据漂移检测
+│   │
+│   ├── metrics/
+│   │   ├── __init__.py
+│   │   ├── psi.py                  # PSI
+│   │   ├── kl.py                   # KL Divergence
+│   │   ├── ks.py                   # KS Test
+│   │   └── performance_metrics.py  # AUC/Precision/F1...
+│   │
+│   ├── report/
+│   │   ├── __init__.py
+│   │   ├── report_builder.py       # HTML / PDF 生成
+│   │   ├── html_template.html      # HTML 模板
+│   │   └── pdf_template.html       # PDF 模板（基于 HTML 转换）
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── plotting.py             # 所有图表方法
+│   │   └── validation.py           # 输入校验
+│
+├── tests/
+│   ├── test_psi.py
+│   ├── test_monitor.py
+│   └── test_performance.py
+│
+├── README.md
+├── pyproject.toml
+└── setup.cfg
