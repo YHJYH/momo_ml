@@ -139,4 +139,3 @@ class PerformanceEvaluator:
                 for k in ref_metrics.keys()
             },
         }
-``
