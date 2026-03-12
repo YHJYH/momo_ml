@@ -87,8 +87,9 @@ def validate_dataframe_basic(df: pd.DataFrame, name: str, report: ValidationRepo
         if sample.empty:
             continue
         # mixture of numbers and objects often signals dirty data
-        if is_numeric_series(sample) is False and sample.map(type).nunique() > 3:
-            report.add_warning(f"[{name}] column '{col}' has many mixed Python types; consider cleaning.")
+        if sample.map(type).nunique() > 1 and not is_numeric_series(sample):
+            report.add_warning(f"[{name}] column '{col}' has mixed Python types.")
+
 
 
 def validate_required_columns(
@@ -103,7 +104,7 @@ def validate_required_columns(
         return
     missing = [c for c in required if c not in df.columns]
     if missing:
-        report.add_error(f"[{name}] missing required columns: {missing}")
+        report.add_error(f"[{name}] missing columns: {missing}")
 
 
 def validate_missing_ratio(
@@ -217,9 +218,7 @@ def assert_compatible_dtypes(
 # ============================================================
 
 def infer_task_type(
-    ref_labels: pd.Series,
-    *,
-    max_class_cardinality: int = 20,
+    ref_labels: pd.Series
 ) -> str:
     """
     Heuristic to infer 'classification' vs 'regression' from reference labels.
@@ -233,8 +232,7 @@ def infer_task_type(
 
     if pd.api.types.is_integer_dtype(s):
         return "classification"
-    if s.nunique() <= max_class_cardinality:
-        return "classification"
+    
     return "regression"
 
 
