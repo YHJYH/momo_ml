@@ -47,11 +47,10 @@ momo-ml/
 │   ├── __init__.py
 │   ├── monitor/
 │   │   ├── __init__.py
-│   │   ├── model_monitor.py        # 主监控逻辑入口
-│   │   ├── drift_detector.py       # drift 检测引擎
-│   │   ├── performance.py          # 性能指标相关
-│   │   ├── prediction.py           # 预测漂移检测
-│   │   └── data_drift.py           # 数据漂移检测
+│   │   ├── model_monitor.py        
+│   │   ├── performance.py          
+│   │   ├── prediction.py           
+│   │   └── data_drift.py           
 │   │
 │   ├── metrics/
 │   │   ├── __init__.py
@@ -63,8 +62,6 @@ momo-ml/
 │   ├── report/
 │   │   ├── __init__.py
 │   │   ├── report_builder.py       # HTML / PDF 生成
-│   │   ├── html_template.html      # HTML 模板
-│   │   └── pdf_template.html       # PDF 模板（基于 HTML 转换）
 │   │
 │   ├── utils/
 │   │   ├── __init__.py
