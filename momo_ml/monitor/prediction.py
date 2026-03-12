@@ -32,13 +32,18 @@ class PredictionDriftDetector:
     # Utility extractors
     # -------------------------------------------------------
     def _get_predictions(self):
-        """Extract non-null prediction arrays."""
+        """Extract non-null prediction arrays. Returns empty arrays on missing column."""
         if self.pred_col is None:
+            return np.array([]), np.array([])
+
+        # Handle missing column in reference/current data
+        if self.pred_col not in self.ref_df.columns or self.pred_col not in self.cur_df.columns:
             return np.array([]), np.array([])
 
         ref = self.ref_df[self.pred_col].dropna().astype(float).values
         cur = self.cur_df[self.pred_col].dropna().astype(float).values
         return ref, cur
+
 
     # -------------------------------------------------------
     # Summary statistics
@@ -106,6 +111,9 @@ class PredictionDriftDetector:
         """Run all prediction drift analyses and return a structured report."""
         if self.pred_col is None:
             return {"error": "pred_col must be provided for prediction drift analysis."}
+        
+        if self.pred_col not in self.ref_df.columns or self.pred_col not in self.cur_df.columns:
+                return {"error": f"Column '{self.pred_col}' not found in both datasets."}
 
         ref, cur = self._get_predictions()
 
