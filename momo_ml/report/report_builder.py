@@ -123,7 +123,7 @@ class ReportBuilder:
         html_parts.append(
             """
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                        padding: 20px; line-height: 1.6; }
                 h1 { text-align:center; margin-bottom:30px; }
                 h2 { color:#2d6cdf; }

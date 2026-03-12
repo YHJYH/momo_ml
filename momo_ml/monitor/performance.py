@@ -119,7 +119,7 @@ class PerformanceEvaluator:
             missing.append(f"ref_df.{self.label_col}")
         if self.label_col not in self.cur_df.columns:
             missing.append(f"cur_df.{self.label_col}")
-        # pred needs to exist in both sides (even if we can compute some metrics without it, it's better to be consistent)
+        # pred needs to exist in both sides
         if self.pred_col not in self.ref_df.columns:
             missing.append(f"ref_df.{self.pred_col}")
         if self.pred_col not in self.cur_df.columns:
