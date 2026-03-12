@@ -1,6 +1,6 @@
 # momo-ml
 
-**momo-ml** 是一个用于生产环境的 **模型监控（Model Monitoring）** 工具库，旨在提供系统化、可扩展、可自动化的模型质量监测能力。  
+**momo-ml** 是一个用于生产环境的 **模型监控（MOdel MMnitoring for ML）** 工具库，旨在提供系统化、可扩展、可自动化的模型质量监测能力。  
 库覆盖模型性能漂移（performance drift）、数据漂移（data drift）、预测值漂移（prediction drift）等关键监控维度，同时支持自动生成可视化报表。
 
 本项目适用于数据科学、ML 工程、MLOps 等场景，可集成至模型上线后的各类监控与治理流程。
