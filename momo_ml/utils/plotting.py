@@ -173,7 +173,7 @@ def plot_psi_buckets(
 
     psi_contrib = (ref_s - cur_s) * np.log(ref_s / cur_s)
     bucket_labels = [
-        f"{round(breakpoints[i], 3)}–{round(breakpoints[i+1],3)}"
+        f"{round(breakpoints[i], 3)}–{round(breakpoints[i+1], 3)}"
         for i in range(len(breakpoints) - 1)
     ]
 
