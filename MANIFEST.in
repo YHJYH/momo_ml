@@ -1,0 +1,20 @@
+# MANIFEST.in
+
+# Include core project files
+include README.md
+include LICENSE
+include pyproject.toml
+include setup.cfg
+include MANIFEST.in
+
+# Include report templates if你希望打进包（你有 html_template.html）
+recursive-include momo_ml/report *.html
+
+# Exclude development/test/example artifacts
+prune tests
+prune examples
+global-exclude *.pyc
+global-exclude __pycache__/
+global-exclude .DS_Store
+global-exclude *.ipynb
+global-exclude *.log
