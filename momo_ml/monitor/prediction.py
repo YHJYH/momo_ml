@@ -1,4 +1,3 @@
-
 from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
@@ -23,7 +22,9 @@ class PredictionDriftDetector:
         Column name of model predictions.
     """
 
-    def __init__(self, ref_df: pd.DataFrame, cur_df: pd.DataFrame, pred_col: Optional[str]):
+    def __init__(
+        self, ref_df: pd.DataFrame, cur_df: pd.DataFrame, pred_col: Optional[str]
+    ):
         self.ref_df = ref_df.copy()
         self.cur_df = cur_df.copy()
         self.pred_col = pred_col
@@ -37,23 +38,31 @@ class PredictionDriftDetector:
             return np.array([]), np.array([])
 
         # Handle missing column in reference/current data
-        if self.pred_col not in self.ref_df.columns or self.pred_col not in self.cur_df.columns:
+        if (
+            self.pred_col not in self.ref_df.columns
+            or self.pred_col not in self.cur_df.columns
+        ):
             return np.array([]), np.array([])
 
         ref = self.ref_df[self.pred_col].dropna().astype(float).values
         cur = self.cur_df[self.pred_col].dropna().astype(float).values
         return ref, cur
 
-
     # -------------------------------------------------------
     # Summary statistics
     # -------------------------------------------------------
     def _summary_stats(self, ref: np.ndarray, cur: np.ndarray) -> Dict[str, Any]:
         return {
-            "mean": {"reference": float(np.mean(ref)), "current": float(np.mean(cur)),
-                     "delta": float(np.mean(cur) - np.mean(ref))},
-            "std": {"reference": float(np.std(ref)), "current": float(np.std(cur)),
-                    "delta": float(np.std(cur) - np.std(ref))},
+            "mean": {
+                "reference": float(np.mean(ref)),
+                "current": float(np.mean(cur)),
+                "delta": float(np.mean(cur) - np.mean(ref)),
+            },
+            "std": {
+                "reference": float(np.std(ref)),
+                "current": float(np.std(cur)),
+                "delta": float(np.std(cur) - np.std(ref)),
+            },
             "min": {"reference": float(np.min(ref)), "current": float(np.min(cur))},
             "max": {"reference": float(np.max(ref)), "current": float(np.max(cur))},
         }
@@ -61,7 +70,9 @@ class PredictionDriftDetector:
     # -------------------------------------------------------
     # Distribution shift (histogram difference)
     # -------------------------------------------------------
-    def _distribution_shift(self, ref: np.ndarray, cur: np.ndarray, bins: int = 20) -> Dict[str, Any]:
+    def _distribution_shift(
+        self, ref: np.ndarray, cur: np.ndarray, bins: int = 20
+    ) -> Dict[str, Any]:
         """
         Compare histograms of predictions. Computes L1 and L2 distances.
         """
@@ -111,9 +122,12 @@ class PredictionDriftDetector:
         """Run all prediction drift analyses and return a structured report."""
         if self.pred_col is None:
             return {"error": "pred_col must be provided for prediction drift analysis."}
-        
-        if self.pred_col not in self.ref_df.columns or self.pred_col not in self.cur_df.columns:
-                return {"error": f"Column '{self.pred_col}' not found in both datasets."}
+
+        if (
+            self.pred_col not in self.ref_df.columns
+            or self.pred_col not in self.cur_df.columns
+        ):
+            return {"error": f"Column '{self.pred_col}' not found in both datasets."}
 
         ref, cur = self._get_predictions()
 

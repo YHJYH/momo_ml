@@ -1,4 +1,3 @@
-
 """
 Low-level performance metric functions for model monitoring.
 
@@ -31,10 +30,11 @@ from sklearn.metrics import (
 # Utility: Detect task type
 # ======================================================
 
+
 def infer_task_type_from_labels(y: pd.Series, max_class_cardinality: int = 20) -> str:
     """
     Infer whether the task is classification or regression based on label characteristics.
-    
+
     Rules:
     - If dtype is integer or number of unique values <= threshold → classification
     - Else → regression
@@ -56,6 +56,7 @@ def infer_task_type_from_labels(y: pd.Series, max_class_cardinality: int = 20) -
 # ======================================================
 # Classification Metrics
 # ======================================================
+
 
 def compute_classification_metrics(
     y_true: np.ndarray,
@@ -104,6 +105,7 @@ def compute_classification_metrics(
 # Regression Metrics
 # ======================================================
 
+
 def compute_regression_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
@@ -135,13 +137,14 @@ def compute_regression_metrics(
 # Public helper
 # ======================================================
 
+
 def compute_performance_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     task_type: str,
 ) -> Dict[str, Any]:
     """
-    Wrapper used by PerformanceEvaluator:  
+    Wrapper used by PerformanceEvaluator:
     Compute metrics based on a required task type ('classification' or 'regression').
 
     Parameters

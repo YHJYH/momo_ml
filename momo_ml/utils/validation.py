@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -12,6 +11,7 @@ import pandas as pd
 # Exceptions & Data Structures
 # ============================================================
 
+
 class ValidationError(ValueError):
     """Raised when hard validation fails (non-recoverable)."""
 
@@ -19,6 +19,7 @@ class ValidationError(ValueError):
 @dataclass
 class ValidationReport:
     """Container for validation outcomes."""
+
     ok: bool = True
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
@@ -61,7 +62,10 @@ def _ratio(numerator: int, denominator: int) -> float:
 # Core Validators (single DataFrame)
 # ============================================================
 
-def validate_dataframe_basic(df: pd.DataFrame, name: str, report: ValidationReport) -> None:
+
+def validate_dataframe_basic(
+    df: pd.DataFrame, name: str, report: ValidationReport
+) -> None:
     """Basic sanity checks for a dataframe."""
     if not isinstance(df, pd.DataFrame):
         report.add_error(f"[{name}] must be a pandas.DataFrame, got: {type(df)}")
@@ -79,7 +83,9 @@ def validate_dataframe_basic(df: pd.DataFrame, name: str, report: ValidationRepo
 
     # Index monotonicity not required, but warn for bad practice
     if not df.index.is_unique:
-        report.add_warning(f"[{name}] index is not unique; downstream merges may behave unexpectedly.")
+        report.add_warning(
+            f"[{name}] index is not unique; downstream merges may behave unexpectedly."
+        )
 
     # Mixed types in single column can be problematic; flag common cases
     for col in df.columns:
@@ -89,7 +95,6 @@ def validate_dataframe_basic(df: pd.DataFrame, name: str, report: ValidationRepo
         # mixture of numbers and objects often signals dirty data
         if sample.map(type).nunique() > 1 and not is_numeric_series(sample):
             report.add_warning(f"[{name}] column '{col}' has mixed Python types.")
-
 
 
 def validate_required_columns(
@@ -125,9 +130,13 @@ def validate_missing_ratio(
         ratio = _ratio(miss, n)
         stats[c] = {"missing": miss, "ratio": ratio}
         if ratio >= error_threshold:
-            report.add_error(f"[{name}] column '{c}' missing ratio {ratio:.2%} >= {error_threshold:.0%}.")
+            report.add_error(
+                f"[{name}] column '{c}' missing ratio {ratio:.2%} >= {error_threshold:.0%}."
+            )
         elif ratio >= warn_threshold:
-            report.add_warning(f"[{name}] column '{c}' missing ratio {ratio:.2%} >= {warn_threshold:.0%}.")
+            report.add_warning(
+                f"[{name}] column '{c}' missing ratio {ratio:.2%} >= {warn_threshold:.0%}."
+            )
     report.add_info(f"{name}.missing_ratio", stats)
 
 
@@ -146,7 +155,9 @@ def validate_unique_values(
         nunique = int(df[c].nunique(dropna=True))
         stats[c] = {"nunique": nunique}
         if nunique <= min_unique_warn:
-            report.add_warning(f"[{name}] column '{c}' has only {nunique} unique value(s).")
+            report.add_warning(
+                f"[{name}] column '{c}' has only {nunique} unique value(s)."
+            )
     report.add_info(f"{name}.nunique", stats)
 
 
@@ -161,12 +172,15 @@ def ensure_numeric_columns(
     cols = [c for c in cols if c in df.columns]
     non_numeric = [c for c in cols if not is_numeric_series(df[c])]
     if non_numeric:
-        report.add_error(f"[{name}] expected numeric columns, found non-numeric: {non_numeric}")
+        report.add_error(
+            f"[{name}] expected numeric columns, found non-numeric: {non_numeric}"
+        )
 
 
 # ============================================================
 # Cross-DataFrame Validators (ref vs cur)
 # ============================================================
+
 
 def assert_same_schema(
     ref_df: pd.DataFrame,
@@ -217,9 +231,8 @@ def assert_compatible_dtypes(
 # Task-specific Validators (label/pred)
 # ============================================================
 
-def infer_task_type(
-    ref_labels: pd.Series
-) -> str:
+
+def infer_task_type(ref_labels: pd.Series) -> str:
     """
     Heuristic to infer 'classification' vs 'regression' from reference labels.
     - If integer-like or few unique values (<= max_class_cardinality) ⇒ classification
@@ -232,7 +245,7 @@ def infer_task_type(
 
     if pd.api.types.is_integer_dtype(s):
         return "classification"
-    
+
     return "regression"
 
 
@@ -261,12 +274,15 @@ def validate_prediction_probabilities(
     below = (s < -tol).sum()
     above = (s > 1 + tol).sum()
     if below > 0 or above > 0:
-        report.add_warning(f"[{name}] {below}+{above} prediction(s) fall outside [0,1].")
+        report.add_warning(
+            f"[{name}] {below}+{above} prediction(s) fall outside [0,1]."
+        )
 
 
 # ============================================================
 # High-level entry for ModelMonitor
 # ============================================================
+
 
 def validate_monitor_inputs(
     ref_df: pd.DataFrame,
@@ -312,29 +328,59 @@ def validate_monitor_inputs(
 
     # Missing ratio / nunique diagnostics for required cols
     if required:
-        validate_missing_ratio(ref_df, required, name="ref_df", report=report,
-                               warn_threshold=missing_warn, error_threshold=missing_error)
-        validate_missing_ratio(cur_df, required, name="cur_df", report=report,
-                               warn_threshold=missing_warn, error_threshold=missing_error)
+        validate_missing_ratio(
+            ref_df,
+            required,
+            name="ref_df",
+            report=report,
+            warn_threshold=missing_warn,
+            error_threshold=missing_error,
+        )
+        validate_missing_ratio(
+            cur_df,
+            required,
+            name="cur_df",
+            report=report,
+            warn_threshold=missing_warn,
+            error_threshold=missing_error,
+        )
         validate_unique_values(ref_df, required, name="ref_df", report=report)
         validate_unique_values(cur_df, required, name="cur_df", report=report)
 
     # Feature set & schema alignment
     effective_features = assert_same_schema(ref_df, cur_df, feature_cols, report=report)
     # Remove label/pred from feature set if accidentally included
-    effective_features = [c for c in effective_features if c not in (label_col, pred_col)]
+    effective_features = [
+        c for c in effective_features if c not in (label_col, pred_col)
+    ]
     report.add_info("features.effective", effective_features)
 
     assert_compatible_dtypes(ref_df, cur_df, effective_features, report=report)
 
     # Light feature diagnostics
     if effective_features:
-        validate_missing_ratio(ref_df, effective_features, name="ref_df.features", report=report,
-                               warn_threshold=missing_warn, error_threshold=missing_error)
-        validate_missing_ratio(cur_df, effective_features, name="cur_df.features", report=report,
-                               warn_threshold=missing_warn, error_threshold=missing_error)
-        validate_unique_values(ref_df, effective_features, name="ref_df.features", report=report)
-        validate_unique_values(cur_df, effective_features, name="cur_df.features", report=report)
+        validate_missing_ratio(
+            ref_df,
+            effective_features,
+            name="ref_df.features",
+            report=report,
+            warn_threshold=missing_warn,
+            error_threshold=missing_error,
+        )
+        validate_missing_ratio(
+            cur_df,
+            effective_features,
+            name="cur_df.features",
+            report=report,
+            warn_threshold=missing_warn,
+            error_threshold=missing_error,
+        )
+        validate_unique_values(
+            ref_df, effective_features, name="ref_df.features", report=report
+        )
+        validate_unique_values(
+            cur_df, effective_features, name="cur_df.features", report=report
+        )
 
     # Task-specific checks (if provided)
     if label_col and label_col in ref_df.columns and label_col in cur_df.columns:
@@ -345,7 +391,11 @@ def validate_monitor_inputs(
             validate_binary_labels(ref_df[label_col], name="ref_df", report=report)
             # pred checks for classification
             if pred_col and pred_col in ref_df.columns and pred_col in cur_df.columns:
-                validate_prediction_probabilities(ref_df[pred_col], name="ref_df", report=report)
-                validate_prediction_probabilities(cur_df[pred_col], name="cur_df", report=report)
+                validate_prediction_probabilities(
+                    ref_df[pred_col], name="ref_df", report=report
+                )
+                validate_prediction_probabilities(
+                    cur_df[pred_col], name="cur_df", report=report
+                )
 
     return report

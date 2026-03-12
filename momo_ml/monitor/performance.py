@@ -1,4 +1,3 @@
-
 from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
@@ -100,7 +99,7 @@ class PerformanceEvaluator:
     # -------------------------------------------------------
     # Public method
     # -------------------------------------------------------
-    
+
     def evaluate(self) -> Dict[str, Any]:
         """
         Compute performance metrics for both ref_df and cur_df,
@@ -115,7 +114,7 @@ class PerformanceEvaluator:
             return {"error": "label_col and pred_col must be provided."}
 
         missing = []
-        # label needs to exist in both sides 
+        # label needs to exist in both sides
         if self.label_col not in self.ref_df.columns:
             missing.append(f"ref_df.{self.label_col}")
         if self.label_col not in self.cur_df.columns:
@@ -159,8 +158,7 @@ class PerformanceEvaluator:
         # ---- calculate delta（current - reference）----
         keys = set(ref_metrics.keys()) | set(cur_metrics.keys())
         delta = {
-            k: (cur_metrics.get(k, np.nan) - ref_metrics.get(k, np.nan))
-            for k in keys
+            k: (cur_metrics.get(k, np.nan) - ref_metrics.get(k, np.nan)) for k in keys
         }
 
         return {

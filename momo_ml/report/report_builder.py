@@ -15,6 +15,7 @@ from matplotlib.figure import Figure
 # Utility functions
 # =====================================================================
 
+
 def _fig_to_base64(fig: Figure) -> str:
     """Convert a matplotlib Figure into base64-encoded PNG."""
     buf = io.BytesIO()
@@ -26,16 +27,13 @@ def _fig_to_base64(fig: Figure) -> str:
 
 def _escape_html(text: str) -> str:
     """Basic HTML escaping."""
-    return (
-        text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-    )
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 # =====================================================================
 # ReportBuilder
 # =====================================================================
+
 
 @dataclass
 class ReportBuilder:
@@ -73,13 +71,12 @@ class ReportBuilder:
 
     def _render_image(self, fig: Figure, caption: Optional[str] = None) -> str:
         src = _fig_to_base64(fig)
-        cap_html = f"<div style='text-align:center;margin-top:5px;color:#555;'>{_escape_html(caption)}</div>" if caption else ""
-        return (
-            f"<div style='margin:15px 0;'>"
-            f"{src}"
-            f"{cap_html}"
-            f"</div>"
+        cap_html = (
+            f"<div style='text-align:center;margin-top:5px;color:#555;'>{_escape_html(caption)}</div>"
+            if caption
+            else ""
         )
+        return f"<div style='margin:15px 0;'>" f"{src}" f"{cap_html}" f"</div>"
 
     # -----------------------------------------------------------------
     # Rendering core sections
@@ -123,14 +120,16 @@ class ReportBuilder:
         html_parts: List[str] = []
         html_parts.append("<html><head>")
         html_parts.append(f"<title>{_escape_html(self.title)}</title>")
-        html_parts.append("""
+        html_parts.append(
+            """
             <style>
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                        padding: 20px; line-height: 1.6; }
                 h1 { text-align:center; margin-bottom:30px; }
                 h2 { color:#2d6cdf; }
             </style>
-        """)
+        """
+        )
         html_parts.append("</head><body>")
 
         html_parts.append(f"<h1>{_escape_html(self.title)}</h1>")

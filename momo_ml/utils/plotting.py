@@ -1,4 +1,3 @@
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -174,8 +173,10 @@ def plot_psi_buckets(
     cur_s = np.where(cur_dist <= 0, eps, cur_dist)
 
     psi_contrib = (ref_s - cur_s) * np.log(ref_s / cur_s)
-    bucket_labels = [f"{round(breakpoints[i], 3)}–{round(breakpoints[i+1],3)}"
-                     for i in range(len(breakpoints) - 1)]
+    bucket_labels = [
+        f"{round(breakpoints[i], 3)}–{round(breakpoints[i+1],3)}"
+        for i in range(len(breakpoints) - 1)
+    ]
 
     fig, ax = _create_figure((8, 4))
     idx = np.arange(len(psi_contrib))

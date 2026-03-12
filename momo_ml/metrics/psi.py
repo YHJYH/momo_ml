@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 import pandas.api.types as ptypes
@@ -34,8 +33,12 @@ def compute_psi(ref, cur, buckets: int = 10) -> float:
         # 归一化（若为空则退化为均匀分布，避免 0/0）
         ref_sum = ref_counts.sum()
         cur_sum = cur_counts.sum()
-        ref_dist = (ref_counts / ref_sum) if ref_sum > 0 else np.ones(len(cats)) / len(cats)
-        cur_dist = (cur_counts / cur_sum) if cur_sum > 0 else np.ones(len(cats)) / len(cats)
+        ref_dist = (
+            (ref_counts / ref_sum) if ref_sum > 0 else np.ones(len(cats)) / len(cats)
+        )
+        cur_dist = (
+            (cur_counts / cur_sum) if cur_sum > 0 else np.ones(len(cats)) / len(cats)
+        )
 
         # 平滑，避免 log(0)
         eps = 1e-8

@@ -1,10 +1,10 @@
-
 from typing import Dict, Any, Iterable, Optional
 import numpy as np
 import pandas as pd
 
 try:
     from scipy.stats import ks_2samp
+
     _HAVE_SCIPY = True
 except Exception:
     _HAVE_SCIPY = False
@@ -17,10 +17,7 @@ def _ecdf(x: np.ndarray) -> np.ndarray:
 
 
 def compute_ks(
-    ref: Iterable,
-    cur: Iterable,
-    *,
-    return_pvalue: bool = True
+    ref: Iterable, cur: Iterable, *, return_pvalue: bool = True
 ) -> Dict[str, Any]:
     """
     Compute the two-sample Kolmogorov–Smirnov (KS) statistic between
@@ -62,8 +59,15 @@ def compute_ks(
         return {"statistic": np.nan, "pvalue": None, "n_ref": n_ref, "n_cur": n_cur}
 
     if _HAVE_SCIPY and return_pvalue:
-        stat, pval = ks_2samp(ref_s.values, cur_s.values, alternative="two-sided", mode="auto")
-        return {"statistic": float(stat), "pvalue": float(pval), "n_ref": n_ref, "n_cur": n_cur}
+        stat, pval = ks_2samp(
+            ref_s.values, cur_s.values, alternative="two-sided", mode="auto"
+        )
+        return {
+            "statistic": float(stat),
+            "pvalue": float(pval),
+            "n_ref": n_ref,
+            "n_cur": n_cur,
+        }
 
     # Fallback: compute statistic only (no p-value)
     ref_sorted = np.sort(ref_s.values)

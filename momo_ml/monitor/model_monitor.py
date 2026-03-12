@@ -1,4 +1,3 @@
-
 from typing import Optional, Dict, Any
 import pandas as pd
 
@@ -36,9 +35,7 @@ class ModelMonitor:
         self.label_col = label_col
         self.pred_col = pred_col
 
-        self.performance = PerformanceEvaluator(
-            ref_df, cur_df, label_col, pred_col
-        )
+        self.performance = PerformanceEvaluator(ref_df, cur_df, label_col, pred_col)
         self.data_drift = DataDriftDetector(ref_df, cur_df)
         self.prediction_drift = PredictionDriftDetector(ref_df, cur_df, pred_col)
 

@@ -1,4 +1,3 @@
-
 from .report_builder import ReportBuilder
 
 __all__ = [
