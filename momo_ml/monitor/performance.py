@@ -9,7 +9,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
-    mean_squared_error,
+    root_mean_squared_error,
     mean_absolute_error,
 )
 
@@ -89,7 +89,7 @@ class PerformanceEvaluator:
         self, y_true: np.ndarray, y_pred: np.ndarray
     ) -> Dict[str, float]:
 
-        rmse = mean_squared_error(y_true, y_pred, squared=False)
+        rmse = root_mean_squared_error(y_true, y_pred)
         mae = mean_absolute_error(y_true, y_pred)
 
         return {
@@ -100,6 +100,7 @@ class PerformanceEvaluator:
     # -------------------------------------------------------
     # Public method
     # -------------------------------------------------------
+    
     def evaluate(self) -> Dict[str, Any]:
         """
         Compute performance metrics for both ref_df and cur_df,
@@ -107,35 +108,64 @@ class PerformanceEvaluator:
 
         Returns
         -------
-        Dict[str, Any]
+        Dict[str, Any]  # on error: {"error": "..."}
         """
+        # ---- param check ----
         if self.label_col is None or self.pred_col is None:
             return {"error": "label_col and pred_col must be provided."}
 
-        # Extract arrays
-        y_ref = self.ref_df[self.label_col].dropna().values
-        p_ref = self.ref_df[self.pred_col].dropna().values
+        missing = []
+        # label needs to exist in both sides 
+        if self.label_col not in self.ref_df.columns:
+            missing.append(f"ref_df.{self.label_col}")
+        if self.label_col not in self.cur_df.columns:
+            missing.append(f"cur_df.{self.label_col}")
+        # pred needs to exist in both sides (even if we can compute some metrics without it, it's better to be consistent)
+        if self.pred_col not in self.ref_df.columns:
+            missing.append(f"ref_df.{self.pred_col}")
+        if self.pred_col not in self.cur_df.columns:
+            missing.append(f"cur_df.{self.pred_col}")
 
-        y_cur = self.cur_df[self.label_col].dropna().values
-        p_cur = self.cur_df[self.pred_col].dropna().values
+        if missing:
+            return {"error": f"Missing required columns: {', '.join(missing)}"}
 
-        # Determine task type
+        # ---- get values and drop NaN ----
+        y_ref_s = self.ref_df[self.label_col].dropna()
+        p_ref_s = self.ref_df[self.pred_col].dropna()
+        y_cur_s = self.cur_df[self.label_col].dropna()
+        p_cur_s = self.cur_df[self.pred_col].dropna()
+
+        # if any of the series is empty after dropping NaN, we cannot compute metrics
+        if y_ref_s.empty or p_ref_s.empty or y_cur_s.empty or p_cur_s.empty:
+            return {"error": "No valid (non-NaN) values in label/pred columns."}
+
+        y_ref = y_ref_s.values
+        p_ref = p_ref_s.values
+        y_cur = y_cur_s.values
+        p_cur = p_cur_s.values
+
+        # ---- validate job type ----
         is_classif = self._is_classification()
 
+        # ---- calculate metrics ----
         if is_classif:
             ref_metrics = self._classification_metrics(y_ref, p_ref)
             cur_metrics = self._classification_metrics(y_cur, p_cur)
         else:
+            # reg: y_pred and p_pred are both continuous
             ref_metrics = self._regression_metrics(y_ref, p_ref)
             cur_metrics = self._regression_metrics(y_cur, p_cur)
 
-        # Combine output
+        # ---- calculate delta（current - reference）----
+        keys = set(ref_metrics.keys()) | set(cur_metrics.keys())
+        delta = {
+            k: (cur_metrics.get(k, np.nan) - ref_metrics.get(k, np.nan))
+            for k in keys
+        }
+
         return {
             "task_type": "classification" if is_classif else "regression",
             "reference": ref_metrics,
             "current": cur_metrics,
-            "delta": {
-                k: cur_metrics.get(k, np.nan) - ref_metrics.get(k, np.nan)
-                for k in ref_metrics.keys()
-            },
+            "delta": delta,
         }
