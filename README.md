@@ -82,3 +82,7 @@ momo-ml/
 ├── README.md
 ├── pyproject.toml
 └── setup.cfg
+└── .gitignore
+└── CHANGELOG.md
+└── LICENSE
+└── MANIFEST.in
