@@ -1,5 +1,6 @@
-![CI](https://github.com/YHJYH/momo_ml/actions/workflows/CI.yml/badge.svg)
 [![PyPI version](https://img.shields.io/pypi/v/momo-ml)](https://pypi.org/project/momo-ml/)
+![Python Versions](https://img.shields.io/pypi/pyversions/momo-ml)
+![License](https://img.shields.io/pypi/l/momo-ml)
 
 # momo-ml
 
