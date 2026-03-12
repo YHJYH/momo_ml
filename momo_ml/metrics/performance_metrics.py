@@ -9,7 +9,7 @@ This module provides:
 
 from __future__ import annotations
 
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -20,7 +20,6 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
-    mean_squared_error,
     root_mean_squared_error,
     mean_absolute_error,
 )
