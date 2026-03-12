@@ -48,3 +48,7 @@ Issues = "https://github.com/YHJYH/momo_ml/issues"
 # 如需将 report 模板等静态资源一起打包，请启用下面两段（以及 MANIFEST.in 已包含 *.html）
 [tool.setuptools.package-data]
 "momo_ml.report" = ["*.html"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["momo_ml*"]
