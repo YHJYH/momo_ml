@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from numpy.testing import assert_allclose
 
-from momo_ml.monitor.prediction import PredictionDriftDetector
+from momo_ml.monitor.prediction_drift import PredictionDriftDetector
 
 
 # --------------------------------------------------------

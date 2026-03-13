@@ -3,7 +3,7 @@ import pandas as pd
 
 from momo_ml.monitor.data_drift import DataDriftDetector
 from momo_ml.monitor.performance import PerformanceEvaluator
-from momo_ml.monitor.prediction import PredictionDriftDetector
+from momo_ml.monitor.prediction_drift import PredictionDriftDetector
 
 
 class ModelMonitor:
