@@ -31,3 +31,5 @@ htmlcov/
 # IDE configs
 .vscode/
 .idea/
+windows_update.txt
+README_OLD.md
