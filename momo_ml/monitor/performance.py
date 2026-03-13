@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
+import warnings
 
 from sklearn.metrics import (
     roc_auc_score,
@@ -12,13 +13,15 @@ from sklearn.metrics import (
     mean_absolute_error,
 )
 
+from momo_ml.metrics.ks import compute_ks 
+
 
 class PerformanceEvaluator:
     """
     Evaluate model performance drift between reference and current datasets.
 
     Supports:
-    - Binary classification: AUC, Accuracy, Precision, Recall, F1
+    - Binary & multiclass classification: AUC, Accuracy, Precision, Recall, F1, KS
     - Regression: RMSE, MAE
 
     Parameters
@@ -28,7 +31,11 @@ class PerformanceEvaluator:
     cur_df : pd.DataFrame
         Current dataset.
     label_col : str
-        Column name of true labels.
+        Column name of true labels. For binary classification, the labels can be
+        any two distinct values; the larger value will be treated as the positive
+        class, the smaller as the negative. However, to ensure correct calculation
+        of precision/recall/F1 (which assume 0/1 labels), it is strongly recommended
+        to convert your labels to 0 (negative) and 1 (positive) before passing data.
     pred_col : str
         Column name of model predictions.
     """
@@ -39,46 +46,94 @@ class PerformanceEvaluator:
         cur_df: pd.DataFrame,
         label_col: Optional[str],
         pred_col: Optional[str],
+        task_type: Optional[str] = None,
     ):
         self.ref_df = ref_df.copy()
         self.cur_df = cur_df.copy()
         self.label_col = label_col
         self.pred_col = pred_col
+        self.task_type = task_type  # "classification" or "regression" or None (auto-detect)
 
     # -------------------------------------------------------
     # Utility
     # -------------------------------------------------------
+    def _get_classification_type(self) -> str:
+        """Return 'binary' or 'multiclass' based on label column."""
+        y = self.ref_df[self.label_col].dropna()
+        n_unique = y.nunique()
+        if n_unique == 2:
+            return "binary"
+        elif n_unique > 2:
+            return "multiclass"
+        else:
+            return "unknown"  # can't train if only 1 class present
+    
     def _is_classification(self) -> bool:
         """Detect classification vs regression based on label dtype."""
-        y = self.ref_df[self.label_col]
-        return pd.api.types.is_integer_dtype(y) or y.nunique() <= 20
+        y = self.ref_df[self.label_col].dropna()
+        return y.nunique() <= 20
 
     # -------------------------------------------------------
     # Classification metrics
     # -------------------------------------------------------
     def _classification_metrics(
-        self, y_true: np.ndarray, y_pred: np.ndarray
-    ) -> Dict[str, float]:
-
-        # Handle edge cases: AUC requires both positive and negative labels
+            self, y_true: np.ndarray, y_pred: np.ndarray, task_type: str
+        ) -> Dict[str, float]:
         metrics = {}
 
-        try:
-            metrics["auc"] = roc_auc_score(y_true, y_pred)
-        except Exception:
-            metrics["auc"] = np.nan
+        if task_type == "binary":
+            # AUC (need probability scores)
+            try:
+                metrics["auc"] = roc_auc_score(y_true, y_pred)
+            except Exception:
+                metrics["auc"] = np.nan
+            # ----- KS statistic -----
+            unique_labels = np.unique(y_true)
+            if not (np.array_equal(unique_labels, [0, 1]) or np.array_equal(unique_labels, [1, 0])):
+                warnings.warn(
+                    f"Binary classification detected but labels are {unique_labels}. "
+                    "For accurate precision/recall/F1 calculation, it is recommended to "
+                    "convert labels to 0 (negative) and 1 (positive). The library will "
+                    f"treat {max(unique_labels)} as positive and {min(unique_labels)} as negative."
+                )
+            if len(unique_labels) == 2:
+                # assume pos label > neg label
+                pos_label = max(unique_labels)
+                neg_scores = y_pred[y_true != pos_label]
+                pos_scores = y_pred[y_true == pos_label]
+                if len(pos_scores) > 0 and len(neg_scores) > 0:
+                    # call internal KS calculation method
+                    ks_result = compute_ks(neg_scores, pos_scores, return_pvalue=False)
+                    metrics["ks"] = ks_result["statistic"]
+                else:
+                    metrics["ks"] = np.nan
+            else:
+                metrics["ks"] = np.nan   # non-binary classification: KS is not meaningful
+            # binary (threshold at 0.5)
+            y_hat = (y_pred >= 0.5).astype(int)
 
-        # Convert pred→binary label using 0.5 threshold
-        y_hat = (y_pred >= 0.5).astype(int)
-
-        metrics.update(
-            {
+            metrics.update({
                 "accuracy": accuracy_score(y_true, y_hat),
                 "precision": precision_score(y_true, y_hat, zero_division=0),
                 "recall": recall_score(y_true, y_hat, zero_division=0),
                 "f1": f1_score(y_true, y_hat, zero_division=0),
-            }
-        )
+            })
+
+        elif task_type == "multiclass":
+            # assume y_pred are predicted classes
+            y_hat = y_pred.astype(int)
+
+            metrics.update({
+                "accuracy": accuracy_score(y_true, y_hat),
+                "precision_macro": precision_score(y_true, y_hat, average="macro", zero_division=0),
+                "recall_macro": recall_score(y_true, y_hat, average="macro", zero_division=0),
+                "f1_macro": f1_score(y_true, y_hat, average="macro", zero_division=0),
+                # Optional: add micro or weighted averages
+                "precision_weighted": precision_score(y_true, y_hat, average="weighted", zero_division=0),
+                "recall_weighted": recall_score(y_true, y_hat, average="weighted", zero_division=0),
+                "f1_weighted": f1_score(y_true, y_hat, average="weighted", zero_division=0),
+            })
+
         return metrics
 
     # -------------------------------------------------------
@@ -146,10 +201,19 @@ class PerformanceEvaluator:
         # ---- validate job type ----
         is_classif = self._is_classification()
 
+        # ---- determine task type ----
+        if self.task_type is not None:
+            if self.task_type not in ["classification", "regression"]:
+                return {"error": f"task_type must be 'classification' or 'regression', got {self.task_type}"}
+            is_classif = (self.task_type == "classification")
+        else:
+            is_classif = self._is_classification()
+
         # ---- calculate metrics ----
         if is_classif:
-            ref_metrics = self._classification_metrics(y_ref, p_ref)
-            cur_metrics = self._classification_metrics(y_cur, p_cur)
+            classif_type = self._get_classification_type()
+            ref_metrics = self._classification_metrics(y_ref, p_ref, classif_type)
+            cur_metrics = self._classification_metrics(y_cur, p_cur, classif_type)
         else:
             # reg: y_pred and p_pred are both continuous
             ref_metrics = self._regression_metrics(y_ref, p_ref)
@@ -163,6 +227,7 @@ class PerformanceEvaluator:
 
         return {
             "task_type": "classification" if is_classif else "regression",
+            "classification_subtype": classif_type if is_classif else None,
             "reference": ref_metrics,
             "current": cur_metrics,
             "delta": delta,
