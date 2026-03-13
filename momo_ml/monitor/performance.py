@@ -13,7 +13,7 @@ from sklearn.metrics import (
     mean_absolute_error,
 )
 
-from momo_ml.metrics.ks import compute_ks 
+from momo_ml.metrics.ks import compute_ks
 
 
 class PerformanceEvaluator:
@@ -52,7 +52,9 @@ class PerformanceEvaluator:
         self.cur_df = cur_df.copy()
         self.label_col = label_col
         self.pred_col = pred_col
-        self.task_type = task_type  # "classification" or "regression" or None (auto-detect)
+        self.task_type = (
+            task_type  # "classification" or "regression" or None (auto-detect)
+        )
 
     # -------------------------------------------------------
     # Utility
@@ -67,7 +69,7 @@ class PerformanceEvaluator:
             return "multiclass"
         else:
             return "unknown"  # can't train if only 1 class present
-    
+
     def _is_classification(self) -> bool:
         """Detect classification vs regression based on label dtype."""
         y = self.ref_df[self.label_col].dropna()
@@ -77,8 +79,8 @@ class PerformanceEvaluator:
     # Classification metrics
     # -------------------------------------------------------
     def _classification_metrics(
-            self, y_true: np.ndarray, y_pred: np.ndarray, task_type: str
-        ) -> Dict[str, float]:
+        self, y_true: np.ndarray, y_pred: np.ndarray, task_type: str
+    ) -> Dict[str, float]:
         metrics = {}
 
         if task_type == "binary":
@@ -89,7 +91,10 @@ class PerformanceEvaluator:
                 metrics["auc"] = np.nan
             # ----- KS statistic -----
             unique_labels = np.unique(y_true)
-            if not (np.array_equal(unique_labels, [0, 1]) or np.array_equal(unique_labels, [1, 0])):
+            if not (
+                np.array_equal(unique_labels, [0, 1])
+                or np.array_equal(unique_labels, [1, 0])
+            ):
                 warnings.warn(
                     f"Binary classification detected but labels are {unique_labels}. "
                     "For accurate precision/recall/F1 calculation, it is recommended to "
@@ -108,31 +113,49 @@ class PerformanceEvaluator:
                 else:
                     metrics["ks"] = np.nan
             else:
-                metrics["ks"] = np.nan   # non-binary classification: KS is not meaningful
+                metrics["ks"] = (
+                    np.nan
+                )  # non-binary classification: KS is not meaningful
             # binary (threshold at 0.5)
             y_hat = (y_pred >= 0.5).astype(int)
 
-            metrics.update({
-                "accuracy": accuracy_score(y_true, y_hat),
-                "precision": precision_score(y_true, y_hat, zero_division=0),
-                "recall": recall_score(y_true, y_hat, zero_division=0),
-                "f1": f1_score(y_true, y_hat, zero_division=0),
-            })
+            metrics.update(
+                {
+                    "accuracy": accuracy_score(y_true, y_hat),
+                    "precision": precision_score(y_true, y_hat, zero_division=0),
+                    "recall": recall_score(y_true, y_hat, zero_division=0),
+                    "f1": f1_score(y_true, y_hat, zero_division=0),
+                }
+            )
 
         elif task_type == "multiclass":
             # assume y_pred are predicted classes
             y_hat = y_pred.astype(int)
 
-            metrics.update({
-                "accuracy": accuracy_score(y_true, y_hat),
-                "precision_macro": precision_score(y_true, y_hat, average="macro", zero_division=0),
-                "recall_macro": recall_score(y_true, y_hat, average="macro", zero_division=0),
-                "f1_macro": f1_score(y_true, y_hat, average="macro", zero_division=0),
-                # Optional: add micro or weighted averages
-                "precision_weighted": precision_score(y_true, y_hat, average="weighted", zero_division=0),
-                "recall_weighted": recall_score(y_true, y_hat, average="weighted", zero_division=0),
-                "f1_weighted": f1_score(y_true, y_hat, average="weighted", zero_division=0),
-            })
+            metrics.update(
+                {
+                    "accuracy": accuracy_score(y_true, y_hat),
+                    "precision_macro": precision_score(
+                        y_true, y_hat, average="macro", zero_division=0
+                    ),
+                    "recall_macro": recall_score(
+                        y_true, y_hat, average="macro", zero_division=0
+                    ),
+                    "f1_macro": f1_score(
+                        y_true, y_hat, average="macro", zero_division=0
+                    ),
+                    # Optional: add micro or weighted averages
+                    "precision_weighted": precision_score(
+                        y_true, y_hat, average="weighted", zero_division=0
+                    ),
+                    "recall_weighted": recall_score(
+                        y_true, y_hat, average="weighted", zero_division=0
+                    ),
+                    "f1_weighted": f1_score(
+                        y_true, y_hat, average="weighted", zero_division=0
+                    ),
+                }
+            )
 
         return metrics
 
@@ -204,8 +227,10 @@ class PerformanceEvaluator:
         # ---- determine task type ----
         if self.task_type is not None:
             if self.task_type not in ["classification", "regression"]:
-                return {"error": f"task_type must be 'classification' or 'regression', got {self.task_type}"}
-            is_classif = (self.task_type == "classification")
+                return {
+                    "error": f"task_type must be 'classification' or 'regression', got {self.task_type}"
+                }
+            is_classif = self.task_type == "classification"
         else:
             is_classif = self._is_classification()
 

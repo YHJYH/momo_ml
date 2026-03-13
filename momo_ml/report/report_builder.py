@@ -10,7 +10,6 @@ from typing import Dict, Any, Optional, List
 
 from matplotlib.figure import Figure
 
-
 # =====================================================================
 # Utility functions
 # =====================================================================
@@ -120,16 +119,14 @@ class ReportBuilder:
         html_parts: List[str] = []
         html_parts.append("<html><head>")
         html_parts.append(f"<title>{_escape_html(self.title)}</title>")
-        html_parts.append(
-            """
+        html_parts.append("""
             <style>
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                        padding: 20px; line-height: 1.6; }
                 h1 { text-align:center; margin-bottom:30px; }
                 h2 { color:#2d6cdf; }
             </style>
-        """
-        )
+        """)
         html_parts.append("</head><body>")
 
         html_parts.append(f"<h1>{_escape_html(self.title)}</h1>")

@@ -24,7 +24,6 @@ from sklearn.metrics import (
     mean_absolute_error,
 )
 
-
 # ======================================================
 # Utility: Detect task type
 # ======================================================
