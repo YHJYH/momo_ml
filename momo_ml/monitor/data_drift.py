@@ -1,10 +1,11 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 import pandas as pd
+import warnings
 
 from momo_ml.metrics.psi import compute_psi
 
 # from momo_ml.metrics.ks import compute_ks       # (next step)
-from momo_ml.metrics.kl import compute_kl       # (next step)
+from momo_ml.metrics.kl import compute_kl
 
 
 class DataDriftDetector:
@@ -28,7 +29,7 @@ class DataDriftDetector:
         cur_df: pd.DataFrame,
         features: List[str] = None,
         kl_buckets: int = 10,
-        kl_base: str = "e",
+        kl_base: Literal["e", "2", "10"] = "e",
         kl_epsilon: float = 1e-12,
         kl_handle_outside: str = "ignore",
     ):
@@ -41,18 +42,33 @@ class DataDriftDetector:
         else:
             self.features = features
         
+        if not self.features:
+            warnings.warn("No common features found between reference and current datasets. No drift will be computed.")
+        
         self.kl_buckets = kl_buckets
         self.kl_base = kl_base
         self.kl_epsilon = kl_epsilon
         self.kl_handle_outside = kl_handle_outside
 
         # Split features by dtype
-        self.numeric_features = [
-            f for f in self.features if pd.api.types.is_numeric_dtype(ref_df[f])
-        ]
-        self.categorical_features = [
-            f for f in self.features if f not in self.numeric_features
-        ]
+        self.numeric_features = []
+        self.categorical_features = []
+        self.incompatible_features = []
+        for f in self.features:
+            ref_is_num = pd.api.types.is_numeric_dtype(ref_df[f])
+            cur_is_num = pd.api.types.is_numeric_dtype(cur_df[f])
+
+            if ref_is_num and cur_is_num:
+                self.numeric_features.append(f)
+            elif not ref_is_num and not cur_is_num:
+                self.categorical_features.append(f)
+            else:
+                # Incompatible types between ref and cur for this feature; skip it with a warning
+                warnings.warn(
+                    f"Feature '{f}' has incompatible types: ref type = {ref_df[f].dtype}, "
+                    f"cur type = {cur_df[f].dtype}. It will be excluded from drift detection."
+                )
+                self.incompatible_features.append(f)
 
     def compute_feature_psi(self, feature: str) -> float:
         """Compute PSI for a single feature."""
@@ -90,7 +106,6 @@ class DataDriftDetector:
             results[feat] = {
                 "psi": self.compute_feature_psi(feat),
                 "kl": self.compute_feature_kl(feat),
-                # (Categorical drift often uses PSI only)
             }
         return results
 
@@ -103,4 +118,5 @@ class DataDriftDetector:
         return {
             "numeric_features": self.compute_numeric_drift(),
             "categorical_features": self.compute_categorical_drift(),
+            "incompatible_features": self.incompatible_features,
         }

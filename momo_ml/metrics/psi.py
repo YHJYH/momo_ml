@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pandas as pd
 import pandas.api.types as ptypes
@@ -13,6 +14,10 @@ def compute_psi(ref, cur, buckets: int = 10) -> float:
 
     This avoids errors when either side contains strings/object/string-dtype and we try to astype(float).
     """
+    if ref.empty or cur.empty:
+        warnings.warn("One of the input series is empty after dropping NaN. Returning NaN.")
+        return np.nan
+    
     ref_s = pd.Series(ref).dropna()
     cur_s = pd.Series(cur).dropna()
 
