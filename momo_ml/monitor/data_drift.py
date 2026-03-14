@@ -41,10 +41,12 @@ class DataDriftDetector:
             self.features = list(set(ref_df.columns) & set(cur_df.columns))
         else:
             self.features = features
-        
+
         if not self.features:
-            warnings.warn("No common features found between reference and current datasets. No drift will be computed.")
-        
+            warnings.warn(
+                "No common features found between reference and current datasets. No drift will be computed."
+            )
+
         self.kl_buckets = kl_buckets
         self.kl_base = kl_base
         self.kl_epsilon = kl_epsilon
@@ -76,7 +78,7 @@ class DataDriftDetector:
             self.ref_df[feature].values,
             self.cur_df[feature].values,
         )
-    
+
     def compute_feature_kl(self, feature: str) -> float:
         """Compute KL divergence for a single feature."""
         return compute_kl(
@@ -87,7 +89,7 @@ class DataDriftDetector:
             epsilon=self.kl_epsilon,
             handle_outside=self.kl_handle_outside,
         )
-    
+
     def compute_numeric_drift(self) -> Dict[str, Any]:
         """Compute drift for all numeric features."""
         results = {}

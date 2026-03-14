@@ -8,7 +8,7 @@ def _probs_from_numeric(
     ref: pd.Series,
     cur: pd.Series,
     buckets: int,
-    handle_outside = "ignore",
+    handle_outside="ignore",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Bin numeric values using reference quantile edges and return discrete probs.
@@ -124,8 +124,12 @@ def compute_kl(
     - For categorical data: frequency-based discrete distributions are used.
     - Epsilon smoothing prevents log(0) and division-by-zero issues.
     """
-    if ref.empty or cur.empty:
-        warnings.warn("One of the input series is empty after dropping NaN. Returning NaN.")
+    ref = np.asarray(ref)
+    cur = np.asarray(cur)
+    if ref.size == 0 or cur.size == 0:
+        warnings.warn(
+            "One of the input series is empty after dropping NaN. Returning NaN."
+        )
         return np.nan
 
     ref_s = pd.Series(ref).dropna()
@@ -134,7 +138,10 @@ def compute_kl(
     # Determine numeric vs categorical by dtype (object or string -> categorical)
     if pd.api.types.is_numeric_dtype(ref_s) and pd.api.types.is_numeric_dtype(cur_s):
         P, Q = _probs_from_numeric(
-            ref_s.astype(float), cur_s.astype(float), buckets=buckets, handle_outside=handle_outside
+            ref_s.astype(float),
+            cur_s.astype(float),
+            buckets=buckets,
+            handle_outside=handle_outside,
         )
     else:
         P, Q = _probs_from_categorical(ref_s.astype(object), cur_s.astype(object))
