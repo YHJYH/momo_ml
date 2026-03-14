@@ -91,9 +91,9 @@ def compute_kl(
     Parameters
     ----------
     ref : Iterable
-        Reference sample.
+        Reference sample. I.e. training data.
     cur : Iterable
-        Current sample.
+        Current sample. I.e. production data.
     buckets : int, default 10
         Number of quantile bins (for numeric data). Ignored for categorical data.
     base : {"e", "2", "10"}, default "e"
