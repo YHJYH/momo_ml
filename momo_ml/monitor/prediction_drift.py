@@ -82,13 +82,13 @@ class PredictionDriftDetector:
             cur_const = np.all(cur == cur[0])
             if ref_const and cur_const and ref[0] == cur[0]:
                 return {"l1_distance": 0.0, "l2_distance": 0.0, "bins": bins}
-            
+
         # Compute aligned histogram bins
         combined = np.concatenate([ref, cur])
         min_val, max_val = combined.min(), combined.max()
         if min_val == max_val:
             return {"l1_distance": 0.0, "l2_distance": 0.0, "bins": bins}
-        
+
         hist_bins = np.linspace(combined.min(), combined.max(), bins + 1)
 
         ref_hist, _ = np.histogram(ref, bins=hist_bins, density=True)
