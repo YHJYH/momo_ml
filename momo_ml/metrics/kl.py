@@ -1,4 +1,5 @@
 from typing import Iterable, Literal, Tuple
+import warnings
 import numpy as np
 import pandas as pd
 
@@ -7,6 +8,7 @@ def _probs_from_numeric(
     ref: pd.Series,
     cur: pd.Series,
     buckets: int,
+    handle_outside = "ignore",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Bin numeric values using reference quantile edges and return discrete probs.
@@ -20,12 +22,19 @@ def _probs_from_numeric(
         # everything goes to one bin -> zero KL
         return np.array([1.0]), np.array([1.0]) if cur.size > 0 else np.array([1.0])
 
-    # Use pandas cut to assign bins (right-closed to match histogram default)
-    ref_bins = pd.cut(ref, bins=edges, include_lowest=True, right=True)
-    cur_bins = pd.cut(cur, bins=edges, include_lowest=True, right=True)
-
-    ref_counts = ref_bins.value_counts(sort=False).values.astype(float)
-    cur_counts = cur_bins.value_counts(sort=False).values.astype(float)
+    if handle_outside == "clip":
+        ref_bins = np.digitize(ref, bins=edges, right=True)
+        cur_bins = np.digitize(cur, bins=edges, right=True)
+        ref_bins = np.clip(ref_bins, 1, len(edges))
+        cur_bins = np.clip(cur_bins, 1, len(edges))
+        ref_counts = np.bincount(ref_bins - 1, minlength=len(edges))
+        cur_counts = np.bincount(cur_bins - 1, minlength=len(edges))
+    else:
+        # Use pandas cut to assign bins (right-closed to match histogram default)
+        ref_bins = pd.cut(ref, bins=edges, include_lowest=True, right=True)
+        cur_bins = pd.cut(cur, bins=edges, include_lowest=True, right=True)
+        ref_counts = ref_bins.value_counts(sort=False).values.astype(float)
+        cur_counts = cur_bins.value_counts(sort=False).values.astype(float)
 
     ref_probs = (
         ref_counts / ref_counts.sum()
@@ -84,6 +93,7 @@ def compute_kl(
     buckets: int = 10,
     base: Literal["e", "2", "10"] = "e",
     epsilon: float = 1e-12,
+    handle_outside: str = "ignore",
 ) -> float:
     """
     Compute Kullback–Leibler divergence D_KL(P||Q) between reference P and current Q.
@@ -114,13 +124,17 @@ def compute_kl(
     - For categorical data: frequency-based discrete distributions are used.
     - Epsilon smoothing prevents log(0) and division-by-zero issues.
     """
+    if ref.empty or cur.empty:
+        warnings.warn("One of the input series is empty after dropping NaN. Returning NaN.")
+        return np.nan
+
     ref_s = pd.Series(ref).dropna()
     cur_s = pd.Series(cur).dropna()
 
     # Determine numeric vs categorical by dtype (object or string -> categorical)
     if pd.api.types.is_numeric_dtype(ref_s) and pd.api.types.is_numeric_dtype(cur_s):
         P, Q = _probs_from_numeric(
-            ref_s.astype(float), cur_s.astype(float), buckets=buckets
+            ref_s.astype(float), cur_s.astype(float), buckets=buckets, handle_outside=handle_outside
         )
     else:
         P, Q = _probs_from_categorical(ref_s.astype(object), cur_s.astype(object))

@@ -4,7 +4,7 @@ import pandas as pd
 from momo_ml.metrics.psi import compute_psi
 
 # from momo_ml.metrics.ks import compute_ks       # (next step)
-# from momo_ml.metrics.kl import compute_kl       # (next step)
+from momo_ml.metrics.kl import compute_kl       # (next step)
 
 
 class DataDriftDetector:
@@ -27,6 +27,10 @@ class DataDriftDetector:
         ref_df: pd.DataFrame,
         cur_df: pd.DataFrame,
         features: List[str] = None,
+        kl_buckets: int = 10,
+        kl_base: str = "e",
+        kl_epsilon: float = 1e-12,
+        kl_handle_outside: str = "ignore",
     ):
         self.ref_df = ref_df.copy()
         self.cur_df = cur_df.copy()
@@ -36,6 +40,11 @@ class DataDriftDetector:
             self.features = list(set(ref_df.columns) & set(cur_df.columns))
         else:
             self.features = features
+        
+        self.kl_buckets = kl_buckets
+        self.kl_base = kl_base
+        self.kl_epsilon = kl_epsilon
+        self.kl_handle_outside = kl_handle_outside
 
         # Split features by dtype
         self.numeric_features = [
@@ -51,7 +60,18 @@ class DataDriftDetector:
             self.ref_df[feature].values,
             self.cur_df[feature].values,
         )
-
+    
+    def compute_feature_kl(self, feature: str) -> float:
+        """Compute KL divergence for a single feature."""
+        return compute_kl(
+            self.ref_df[feature].values,
+            self.cur_df[feature].values,
+            buckets=self.kl_buckets,
+            base=self.kl_base,
+            epsilon=self.kl_epsilon,
+            handle_outside=self.kl_handle_outside,
+        )
+    
     def compute_numeric_drift(self) -> Dict[str, Any]:
         """Compute drift for all numeric features."""
         results = {}
@@ -59,7 +79,7 @@ class DataDriftDetector:
             results[feat] = {
                 "psi": self.compute_feature_psi(feat),
                 # "ks": compute_ks(...),   # to be added
-                # "kl": compute_kl(...),   # to be added
+                "kl": self.compute_feature_kl(feat),
             }
         return results
 
@@ -68,7 +88,8 @@ class DataDriftDetector:
         results = {}
         for feat in self.categorical_features:
             results[feat] = {
-                "psi": self.compute_feature_psi(feat)
+                "psi": self.compute_feature_psi(feat),
+                "kl": self.compute_feature_kl(feat),
                 # (Categorical drift often uses PSI only)
             }
         return results
