@@ -4,7 +4,7 @@ import warnings
 
 from momo_ml.metrics.psi import compute_psi
 
-# from momo_ml.metrics.ks import compute_ks       # (next step)
+from momo_ml.metrics.ks import compute_ks
 from momo_ml.metrics.kl import compute_kl
 
 
@@ -40,7 +40,18 @@ class DataDriftDetector:
             # Only compare the common columns
             self.features = list(set(ref_df.columns) & set(cur_df.columns))
         else:
-            self.features = features
+            seen = set()
+            features = [f for f in features if not (f in seen or seen.add(f))]
+            valid = [f for f in features if f in ref_df.columns and f in cur_df.columns]
+            missing = [f for f in features if f not in ref_df.columns or f not in cur_df.columns]
+
+            if missing:
+                msg = (
+                    "The following features are missing in one of the datasets "
+                    "and will be skipped: " + ", ".join(map(str, missing))
+                )
+                warnings.warn(msg)
+            self.features = valid
 
         if not self.features:
             warnings.warn(
@@ -89,6 +100,14 @@ class DataDriftDetector:
             epsilon=self.kl_epsilon,
             handle_outside=self.kl_handle_outside,
         )
+    
+    def compute_feature_ks(self, feature: str) -> Dict[str, Any]:
+        """Compute KS statistic for a single numeric feature."""
+        return compute_ks(
+            self.ref_df[feature].values,
+            self.cur_df[feature].values,
+            return_pvalue=True,
+        )
 
     def compute_numeric_drift(self) -> Dict[str, Any]:
         """Compute drift for all numeric features."""
@@ -96,13 +115,13 @@ class DataDriftDetector:
         for feat in self.numeric_features:
             results[feat] = {
                 "psi": self.compute_feature_psi(feat),
-                # "ks": compute_ks(...),   # to be added
                 "kl": self.compute_feature_kl(feat),
+                "ks": self.compute_feature_ks(feat),
             }
         return results
 
     def compute_categorical_drift(self) -> Dict[str, Any]:
-        """Compute drift for categorical features (PSI-based)."""
+        """Compute drift for categorical features."""
         results = {}
         for feat in self.categorical_features:
             results[feat] = {
