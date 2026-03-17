@@ -3,9 +3,9 @@ import pandas as pd
 import warnings
 
 from momo_ml.metrics.psi import compute_psi
-
 from momo_ml.metrics.ks import compute_ks
 from momo_ml.metrics.kl import compute_kl
+from momo_ml.metrics.js import compute_js
 
 
 class DataDriftDetector:
@@ -108,6 +108,17 @@ class DataDriftDetector:
             self.cur_df[feature].values,
             return_pvalue=True,
         )
+    
+    def compute_feature_js(self, feature: str) -> float:
+        """Compute JS divergence for a single feature."""
+        return compute_js(
+            self.ref_df[feature].values,
+            self.cur_df[feature].values,
+            buckets=self.kl_buckets,
+            base=self.kl_base,
+            epsilon=self.kl_epsilon,
+            handle_outside=self.kl_handle_outside,
+        )
 
     def compute_numeric_drift(self) -> Dict[str, Any]:
         """Compute drift for all numeric features."""
@@ -117,6 +128,7 @@ class DataDriftDetector:
                 "psi": self.compute_feature_psi(feat),
                 "kl": self.compute_feature_kl(feat),
                 "ks": self.compute_feature_ks(feat),
+                "js": self.compute_feature_js(feat),
             }
         return results
 
@@ -127,6 +139,7 @@ class DataDriftDetector:
             results[feat] = {
                 "psi": self.compute_feature_psi(feat),
                 "kl": self.compute_feature_kl(feat),
+                "js": self.compute_feature_js(feat),
             }
         return results
 
