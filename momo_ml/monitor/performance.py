@@ -161,7 +161,6 @@ class PerformanceEvaluator:
             if len(unique_labels) == 2:
                 # assume pos label > neg label
                 pos_label = max(unique_labels)
-                neg_label = min(unique_labels)
 
                 # Map true labels to 0/1 for metrics that require binary indicators
                 y_true_mapped = np.where(y_true == pos_label, 1, 0)
