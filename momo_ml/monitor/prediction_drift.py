@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Union, Literal
+from typing import Dict, Any, Optional, List, Literal
 import numpy as np
 import pandas as pd
 import warnings
@@ -71,7 +71,9 @@ class PredictionDriftDetector:
         self.cur_df = cur_df.copy()
         self.pred_col = pred_col
         self.bins = bins
-        self.quantiles = quantiles if quantiles is not None else np.linspace(0, 1, 11).tolist()
+        self.quantiles = (
+            quantiles if quantiles is not None else np.linspace(0, 1, 11).tolist()
+        )
         self.include_psi = include_psi
         self.include_ks = include_ks
         self.include_kl = include_kl
@@ -103,12 +105,17 @@ class PredictionDriftDetector:
         """Determine whether predictions should be treated as continuous."""
         ref_s = pd.Series(ref)
         cur_s = pd.Series(cur)
-        if not pd.api.types.is_numeric_dtype(ref_s) or not pd.api.types.is_numeric_dtype(cur_s):
+        if not pd.api.types.is_numeric_dtype(
+            ref_s
+        ) or not pd.api.types.is_numeric_dtype(cur_s):
             return False
 
         unique_ref = ref_s.nunique()
         unique_cur = cur_s.nunique()
-        if unique_ref <= self.categorical_threshold and unique_cur <= self.categorical_threshold:
+        if (
+            unique_ref <= self.categorical_threshold
+            and unique_cur <= self.categorical_threshold
+        ):
             return False
 
         return True
@@ -116,7 +123,9 @@ class PredictionDriftDetector:
     # -------------------------------------------------------
     # Summary statistics
     # -------------------------------------------------------
-    def _summary_stats_continuous(self, ref: np.ndarray, cur: np.ndarray) -> Dict[str, Any]:
+    def _summary_stats_continuous(
+        self, ref: np.ndarray, cur: np.ndarray
+    ) -> Dict[str, Any]:
         ref = ref.astype(float)
         cur = cur.astype(float)
         return {
@@ -132,12 +141,23 @@ class PredictionDriftDetector:
             },
             "min": {"reference": float(np.min(ref)), "current": float(np.min(cur))},
             "max": {"reference": float(np.max(ref)), "current": float(np.max(cur))},
-            "q25": {"reference": float(np.percentile(ref, 25)), "current": float(np.percentile(cur, 25))},
-            "q50": {"reference": float(np.median(ref)), "current": float(np.median(cur))},
-            "q75": {"reference": float(np.percentile(ref, 75)), "current": float(np.percentile(cur, 75))},
+            "q25": {
+                "reference": float(np.percentile(ref, 25)),
+                "current": float(np.percentile(cur, 25)),
+            },
+            "q50": {
+                "reference": float(np.median(ref)),
+                "current": float(np.median(cur)),
+            },
+            "q75": {
+                "reference": float(np.percentile(ref, 75)),
+                "current": float(np.percentile(cur, 75)),
+            },
         }
 
-    def _summary_stats_categorical(self, ref: np.ndarray, cur: np.ndarray) -> Dict[str, Any]:
+    def _summary_stats_categorical(
+        self, ref: np.ndarray, cur: np.ndarray
+    ) -> Dict[str, Any]:
         """For categorical predictions, return value counts and proportions."""
         ref_counts = pd.Series(ref).value_counts()
         cur_counts = pd.Series(cur).value_counts()
@@ -160,7 +180,9 @@ class PredictionDriftDetector:
     # -------------------------------------------------------
     # Distribution shift metrics
     # -------------------------------------------------------
-    def _compute_histogram_distances(self, ref: np.ndarray, cur: np.ndarray) -> Dict[str, float]:
+    def _compute_histogram_distances(
+        self, ref: np.ndarray, cur: np.ndarray
+    ) -> Dict[str, float]:
         """Compute L1 and L2 distances between histograms (only for continuous)."""
         if ref.size == 0 or cur.size == 0:
             return {"l1_distance": np.nan, "l2_distance": np.nan}
@@ -181,7 +203,9 @@ class PredictionDriftDetector:
         l2 = float(np.sqrt(np.sum((ref_hist - cur_hist) ** 2)))
         return {"l1_distance": l1, "l2_distance": l2}
 
-    def _distribution_shift(self, ref: np.ndarray, cur: np.ndarray, continuous: bool) -> Dict[str, Any]:
+    def _distribution_shift(
+        self, ref: np.ndarray, cur: np.ndarray, continuous: bool
+    ) -> Dict[str, Any]:
         """
         Compute all requested distribution shift metrics using metrics functions.
         Histogram distances are only computed for continuous.
@@ -216,7 +240,8 @@ class PredictionDriftDetector:
         if self.include_kl:
             try:
                 results["kl"] = compute_kl(
-                    ref, cur,
+                    ref,
+                    cur,
                     buckets=self.bins,
                     base=self.kl_base,
                     epsilon=self.kl_epsilon,
@@ -230,7 +255,8 @@ class PredictionDriftDetector:
         if self.include_js:
             try:
                 results["js"] = compute_js(
-                    ref, cur,
+                    ref,
+                    cur,
                     buckets=self.bins,
                     base=self.kl_base,
                     epsilon=self.kl_epsilon,
