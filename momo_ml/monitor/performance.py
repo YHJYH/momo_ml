@@ -179,12 +179,16 @@ class PerformanceEvaluator:
                 y_hat = (y_pred >= 0.5).astype(int)
 
                 # Now compute metrics using mapped true labels
-                metrics.update({
-                    "accuracy": accuracy_score(y_true_mapped, y_hat),
-                    "precision": precision_score(y_true_mapped, y_hat, zero_division=0),
-                    "recall": recall_score(y_true_mapped, y_hat, zero_division=0),
-                    "f1": f1_score(y_true_mapped, y_hat, zero_division=0),
-                })
+                metrics.update(
+                    {
+                        "accuracy": accuracy_score(y_true_mapped, y_hat),
+                        "precision": precision_score(
+                            y_true_mapped, y_hat, zero_division=0
+                        ),
+                        "recall": recall_score(y_true_mapped, y_hat, zero_division=0),
+                        "f1": f1_score(y_true_mapped, y_hat, zero_division=0),
+                    }
+                )
             else:
                 metrics["ks"] = np.nan
 
