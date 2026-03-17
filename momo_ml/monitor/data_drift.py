@@ -6,6 +6,7 @@ from momo_ml.metrics.psi import compute_psi
 from momo_ml.metrics.ks import compute_ks
 from momo_ml.metrics.kl import compute_kl
 from momo_ml.metrics.js import compute_js
+from momo_ml.metrics.wd import compute_wd
 
 
 class DataDriftDetector:
@@ -119,6 +120,13 @@ class DataDriftDetector:
             epsilon=self.kl_epsilon,
             handle_outside=self.kl_handle_outside,
         )
+    
+    def compute_feature_wd(self, feature: str) -> float:
+        """Compute Wasserstein distance for a single feature."""
+        return compute_wd(
+            self.ref_df[feature].values,
+            self.cur_df[feature].values,
+        )
 
     def compute_numeric_drift(self) -> Dict[str, Any]:
         """Compute drift for all numeric features."""
@@ -129,6 +137,7 @@ class DataDriftDetector:
                 "kl": self.compute_feature_kl(feat),
                 "ks": self.compute_feature_ks(feat),
                 "js": self.compute_feature_js(feat),
+                "wd": self.compute_feature_wd(feat),
             }
         return results
 
@@ -140,6 +149,7 @@ class DataDriftDetector:
                 "psi": self.compute_feature_psi(feat),
                 "kl": self.compute_feature_kl(feat),
                 "js": self.compute_feature_js(feat),
+                "wd": self.compute_feature_wd(feat),
             }
         return results
 
