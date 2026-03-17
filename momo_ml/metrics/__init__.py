@@ -1,9 +1,11 @@
 from .psi import compute_psi
 from .ks import compute_ks
 from .kl import compute_kl
+from .js import compute_js
 
 __all__ = [
     "compute_psi",
     "compute_ks",
     "compute_kl",
+    "compute_js",
 ]
