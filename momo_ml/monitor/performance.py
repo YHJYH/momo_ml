@@ -161,29 +161,35 @@ class PerformanceEvaluator:
             if len(unique_labels) == 2:
                 # assume pos label > neg label
                 pos_label = max(unique_labels)
+
+                # Map true labels to 0/1 for metrics that require binary indicators
+                y_true_mapped = np.where(y_true == pos_label, 1, 0)
+
+                # For KS, use original scores and labels
                 neg_scores = y_pred[y_true != pos_label]
                 pos_scores = y_pred[y_true == pos_label]
                 if len(pos_scores) > 0 and len(neg_scores) > 0:
-                    # call internal KS calculation method
                     ks_result = compute_ks(neg_scores, pos_scores, return_pvalue=False)
                     metrics["ks"] = ks_result["statistic"]
                 else:
                     metrics["ks"] = np.nan
-            else:
-                metrics["ks"] = (
-                    np.nan
-                )  # non-binary classification: KS is not meaningful
-            # binary (threshold at 0.5)
-            y_hat = (y_pred >= 0.5).astype(int)
 
-            metrics.update(
-                {
-                    "accuracy": accuracy_score(y_true, y_hat),
-                    "precision": precision_score(y_true, y_hat, zero_division=0),
-                    "recall": recall_score(y_true, y_hat, zero_division=0),
-                    "f1": f1_score(y_true, y_hat, zero_division=0),
-                }
-            )
+                # Binary predictions from probabilities (threshold 0.5)
+                y_hat = (y_pred >= 0.5).astype(int)
+
+                # Now compute metrics using mapped true labels
+                metrics.update(
+                    {
+                        "accuracy": accuracy_score(y_true_mapped, y_hat),
+                        "precision": precision_score(
+                            y_true_mapped, y_hat, zero_division=0
+                        ),
+                        "recall": recall_score(y_true_mapped, y_hat, zero_division=0),
+                        "f1": f1_score(y_true_mapped, y_hat, zero_division=0),
+                    }
+                )
+            else:
+                metrics["ks"] = np.nan
 
         elif task_type == "multiclass":
             # assume y_pred are predicted classes

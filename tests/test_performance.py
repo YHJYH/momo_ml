@@ -326,13 +326,24 @@ def test_binary_evaluate_01(binary_data_01):
 
 
 def test_binary_evaluate_non_01_labels(binary_data_25):
-    """Non‑0/1 labels trigger a warning and cause ValueError in precision/recall/f1."""
+    """Non‑0/1 labels trigger a warning but are handled correctly (no ValueError)."""
     ref_df, cur_df = binary_data_25
     evaluator = PerformanceEvaluator(ref_df, cur_df, "label", "pred")
 
+    # The evaluator should warn about the non‑standard labels
     with pytest.warns(UserWarning, match="Binary classification detected but labels are"):
-        with pytest.raises(ValueError):
-            evaluator.evaluate()
+        result = evaluator.evaluate()
+
+    # No exception is raised; metrics are computed correctly.
+    assert "error" not in result
+    assert result["task_type"] == "classification"
+    assert result["classification_subtype"] == "binary"
+    # Check that essential metrics exist and are finite
+    for key in ["auc", "ks", "accuracy", "precision", "recall", "f1"]:
+        assert key in result["reference"]
+        assert np.isfinite(result["reference"][key])
+        assert key in result["current"]
+        assert np.isfinite(result["current"][key])
 
 
 # ---------------------------
