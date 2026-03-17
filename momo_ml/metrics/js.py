@@ -52,10 +52,14 @@ def _probs_from_numeric(
     cur_counts = cur_b.value_counts(sort=False).values.astype(float)
 
     ref_probs = (
-        ref_counts / ref_counts.sum() if ref_counts.sum() > 0 else np.zeros_like(ref_counts)
+        ref_counts / ref_counts.sum()
+        if ref_counts.sum() > 0
+        else np.zeros_like(ref_counts)
     )
     cur_probs = (
-        cur_counts / cur_counts.sum() if cur_counts.sum() > 0 else np.zeros_like(cur_counts)
+        cur_counts / cur_counts.sum()
+        if cur_counts.sum() > 0
+        else np.zeros_like(cur_counts)
     )
     return ref_probs, cur_probs
 
@@ -84,10 +88,14 @@ def _probs_from_categorical(
     )
 
     ref_probs = (
-        ref_counts / ref_counts.sum() if ref_counts.sum() > 0 else np.zeros_like(ref_counts)
+        ref_counts / ref_counts.sum()
+        if ref_counts.sum() > 0
+        else np.zeros_like(ref_counts)
     )
     cur_probs = (
-        cur_counts / cur_counts.sum() if cur_counts.sum() > 0 else np.zeros_like(cur_counts)
+        cur_counts / cur_counts.sum()
+        if cur_counts.sum() > 0
+        else np.zeros_like(cur_counts)
     )
     return ref_probs, cur_probs
 

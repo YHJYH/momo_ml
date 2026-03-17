@@ -94,7 +94,12 @@ class PerformanceEvaluator:
     # Helpers for regression metrics
     # -------------------------------------------------------
     @staticmethod
-    def _smape(y_true: np.ndarray, y_pred: np.ndarray, epsilon: float = 1e-8, as_percentage: bool = True) -> float:
+    def _smape(
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        epsilon: float = 1e-8,
+        as_percentage: bool = True,
+    ) -> float:
         """
         Symmetric Mean Absolute Percentage Error.
         Range: [0, 2] if ratio; [0, 200] if percentage.
@@ -108,7 +113,9 @@ class PerformanceEvaluator:
         return smape
 
     @staticmethod
-    def _huber_loss(y_true: np.ndarray, y_pred: np.ndarray, delta: float = 1.0) -> float:
+    def _huber_loss(
+        y_true: np.ndarray, y_pred: np.ndarray, delta: float = 1.0
+    ) -> float:
         """
         Huber loss with parameter delta.
         For residual r:
@@ -120,7 +127,7 @@ class PerformanceEvaluator:
         y_pred = np.asarray(y_pred)
         r = y_true - y_pred
         abs_r = np.abs(r)
-        quad = 0.5 * (r ** 2)
+        quad = 0.5 * (r**2)
         lin = delta * (abs_r - 0.5 * delta)
         loss = np.where(abs_r <= delta, quad, lin)
         return float(np.mean(loss))
@@ -221,7 +228,8 @@ class PerformanceEvaluator:
 
         r2 = r2_score(y_true, y_pred)
         smape = self._smape(
-            y_true, y_pred,
+            y_true,
+            y_pred,
             epsilon=self.smape_epsilon,
             as_percentage=self.smape_as_percentage,
         )
@@ -229,7 +237,6 @@ class PerformanceEvaluator:
         p90_err = float(np.quantile(abs_err, 0.90))
         p95_err = float(np.quantile(abs_err, 0.95))
         huber = self._huber_loss(y_true, y_pred, delta=self.huber_delta)
-
 
         return {
             "rmse": rmse,

@@ -6,12 +6,15 @@ import pandas as pd
 try:
     # SciPy is optional; if available we use its accurate 1D Wasserstein distance
     from scipy.stats import wasserstein_distance as _sp_wasserstein_distance
+
     _HAVE_SCIPY = True
 except Exception:
     _HAVE_SCIPY = False
 
 
-def _probs_from_categorical(ref: pd.Series, cur: pd.Series) -> Tuple[np.ndarray, np.ndarray]:
+def _probs_from_categorical(
+    ref: pd.Series, cur: pd.Series
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Build aligned probability vectors for categorical data based on union of categories.
     """
@@ -31,8 +34,16 @@ def _probs_from_categorical(ref: pd.Series, cur: pd.Series) -> Tuple[np.ndarray,
         .values
     )
 
-    ref_probs = ref_counts / ref_counts.sum() if ref_counts.sum() > 0 else np.zeros_like(ref_counts)
-    cur_probs = cur_counts / cur_counts.sum() if cur_counts.sum() > 0 else np.zeros_like(cur_counts)
+    ref_probs = (
+        ref_counts / ref_counts.sum()
+        if ref_counts.sum() > 0
+        else np.zeros_like(ref_counts)
+    )
+    cur_probs = (
+        cur_counts / cur_counts.sum()
+        if cur_counts.sum() > 0
+        else np.zeros_like(cur_counts)
+    )
     return ref_probs, cur_probs
 
 
@@ -122,7 +133,9 @@ def compute_wd(
     cur_s = pd.Series(np.asarray(cur)).dropna()
 
     if ref_s.empty or cur_s.empty:
-        warnings.warn("One of the input series is empty after dropping NaN. Returning NaN.")
+        warnings.warn(
+            "One of the input series is empty after dropping NaN. Returning NaN."
+        )
         return np.nan
 
     # Numeric vs categorical

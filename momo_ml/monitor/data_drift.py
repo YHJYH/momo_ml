@@ -44,7 +44,11 @@ class DataDriftDetector:
             seen = set()
             features = [f for f in features if not (f in seen or seen.add(f))]
             valid = [f for f in features if f in ref_df.columns and f in cur_df.columns]
-            missing = [f for f in features if f not in ref_df.columns or f not in cur_df.columns]
+            missing = [
+                f
+                for f in features
+                if f not in ref_df.columns or f not in cur_df.columns
+            ]
 
             if missing:
                 msg = (
@@ -101,7 +105,7 @@ class DataDriftDetector:
             epsilon=self.kl_epsilon,
             handle_outside=self.kl_handle_outside,
         )
-    
+
     def compute_feature_ks(self, feature: str) -> Dict[str, Any]:
         """Compute KS statistic for a single numeric feature."""
         return compute_ks(
@@ -109,7 +113,7 @@ class DataDriftDetector:
             self.cur_df[feature].values,
             return_pvalue=True,
         )
-    
+
     def compute_feature_js(self, feature: str) -> float:
         """Compute JS divergence for a single feature."""
         return compute_js(
@@ -120,7 +124,7 @@ class DataDriftDetector:
             epsilon=self.kl_epsilon,
             handle_outside=self.kl_handle_outside,
         )
-    
+
     def compute_feature_wd(self, feature: str) -> float:
         """Compute Wasserstein distance for a single feature."""
         return compute_wd(
