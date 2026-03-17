@@ -10,12 +10,6 @@ except Exception:
     _HAVE_SCIPY = False
 
 
-# def _ecdf(x: np.ndarray) -> np.ndarray:
-#     """Compute empirical CDF values for a sorted array."""
-#     n = x.size
-#     return np.arange(1, n + 1) / n
-
-
 def compute_ks(
     ref: Iterable, cur: Iterable, *, return_pvalue: bool = True
 ) -> Dict[str, Any]:
