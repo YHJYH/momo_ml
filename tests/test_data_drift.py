@@ -463,6 +463,117 @@ def test_detector_js_identical_near_zero_optional():
         pytest.skip("JS not integrated in DataDriftDetector outputs; skipping.")
 
 # --------------------------------------------------------
+# Wasserstein Distance (WD) tests
+# --------------------------------------------------------
+
+def test_wd_numeric_basic():
+    np.random.seed(123)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 500)})
+    cur = pd.DataFrame({"x": np.random.normal(0.2, 1.2, 500)})
+
+    det = DataDriftDetector(ref, cur)
+    out = det.compute_numeric_drift()
+
+    assert "x" in out
+    assert "wd" in out["x"]
+    val = out["x"]["wd"]
+    assert_is_finite_number(val)
+    assert val >= 0.0
+
+
+def test_wd_categorical_basic():
+    ref = pd.DataFrame({"cat": ["A", "B", "A", "C"] * 40})
+    cur = pd.DataFrame({"cat": ["A", "B", "B", "C"] * 40})
+
+    det = DataDriftDetector(ref, cur)
+    out = det.compute_categorical_drift()
+
+    assert "cat" in out
+    assert "wd" in out["cat"]
+    val = out["cat"]["wd"]
+    assert_is_finite_number(val)
+    assert val >= 0.0
+
+
+def test_wd_identical_numeric_near_zero():
+    np.random.seed(42)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 400)})
+    cur = ref.copy()
+
+    det = DataDriftDetector(ref, cur)
+    wd_val = det.compute_numeric_drift()["x"]["wd"]
+
+    assert wd_val < 1e-6  # identical distributions → WD ≈ 0
+
+
+def test_wd_identical_categorical_near_zero():
+    ref = pd.DataFrame({"cat": ["A", "B", "A", "C"] * 50})
+    cur = ref.copy()
+
+    det = DataDriftDetector(ref, cur)
+    wd_val = det.compute_categorical_drift()["cat"]["wd"]
+
+    assert wd_val < 1e-6
+
+
+def test_wd_strength_monotonicity_numeric():
+    np.random.seed(777)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 600)})
+    cur_small = pd.DataFrame({"x": np.random.normal(0.2, 1, 600)})
+    cur_large = pd.DataFrame({"x": np.random.normal(1.2, 1, 600)})
+
+    det_small = DataDriftDetector(ref, cur_small)
+    det_large = DataDriftDetector(ref, cur_large)
+
+    wd_small = det_small.compute_numeric_drift()["x"]["wd"]
+    wd_large = det_large.compute_numeric_drift()["x"]["wd"]
+
+    assert wd_small >= 0 and wd_large >= 0
+    assert wd_large > wd_small  # stronger shift → WD larger
+
+
+def test_wd_handles_nans_and_empty():
+    ref = pd.DataFrame({"x": [np.nan, np.nan, np.nan]})
+    cur = pd.DataFrame({"x": [1, 2, 3]})
+
+    det = DataDriftDetector(ref, cur)
+    wd_val = det.compute_numeric_drift()["x"]["wd"]
+
+    assert np.isnan(wd_val)
+
+    # partially NaN but with valid samples
+    ref2 = pd.DataFrame({"x": [np.nan, 0.0, 1.0, np.nan]})
+    cur2 = pd.DataFrame({"x": [np.nan, 1.0, 2.0, np.nan]})
+
+    det2 = DataDriftDetector(ref2, cur2)
+    wd_val2 = det2.compute_numeric_drift()["x"]["wd"]
+
+    assert_is_finite_number(wd_val2)
+
+
+def test_compute_structure_includes_wd():
+    np.random.seed(1234)
+    ref = pd.DataFrame({
+        "x": np.random.normal(0, 1, 100),
+        "cat": np.random.choice(["A", "B"], size=100)
+    })
+    cur = pd.DataFrame({
+        "x": np.random.normal(0.4, 1.3, 100),
+        "cat": np.random.choice(["A", "B"], size=100)
+    })
+
+    det = DataDriftDetector(ref, cur)
+    out = det.compute()
+
+    # numeric includes wd
+    assert "wd" in out["numeric_features"]["x"]
+    assert_is_finite_number(out["numeric_features"]["x"]["wd"])
+
+    # categorical includes wd
+    assert "wd" in out["categorical_features"]["cat"]
+    assert_is_finite_number(out["categorical_features"]["cat"]["wd"])
+
+# --------------------------------------------------------
 # Robustness: categorical column containing mixed types
 # --------------------------------------------------------
 
