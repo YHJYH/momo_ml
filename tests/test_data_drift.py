@@ -206,6 +206,125 @@ def test_kl_parameters():
     assert "kl" in out["x"]
     assert_is_finite_number(out["x"]["kl"])
 
+# --------------------------------------------------------
+# KS-specific tests
+# --------------------------------------------------------
+
+def _assert_ks_result_struct(ks_obj):
+    assert isinstance(ks_obj, dict)
+    assert set(ks_obj.keys()) == {"statistic", "pvalue", "n_ref", "n_cur"}
+    assert isinstance(ks_obj["statistic"], float) or (np.isnan(ks_obj["statistic"]))
+    # pvalue be float or None
+    assert (ks_obj["pvalue"] is None) or isinstance(ks_obj["pvalue"], float)
+    assert isinstance(ks_obj["n_ref"], int)
+    assert isinstance(ks_obj["n_cur"], int)
+    assert ks_obj["n_ref"] >= 0
+    assert ks_obj["n_cur"] >= 0
+
+def test_numeric_drift_contains_ks_and_is_finite():
+    np.random.seed(123)
+    ref_df = pd.DataFrame({
+        "x": np.random.normal(0, 1, 400),
+        "y": np.random.normal(5, 2, 400),
+    })
+    cur_df = pd.DataFrame({
+        "x": np.random.normal(0.2, 1.3, 400),
+        "y": np.random.normal(5.5, 2.2, 400),
+    })
+    det = DataDriftDetector(ref_df, cur_df)
+    out = det.compute_numeric_drift()
+
+    assert "ks" in out["x"]
+    assert "ks" in out["y"]
+
+    _assert_ks_result_struct(out["x"]["ks"])
+    _assert_ks_result_struct(out["y"]["ks"])
+
+    assert np.isfinite(out["x"]["ks"]["statistic"])
+    assert np.isfinite(out["y"]["ks"]["statistic"])
+
+def test_ks_statistic_increases_with_stronger_shift():
+    np.random.seed(7)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 600)})
+    # light drift
+    cur_small = pd.DataFrame({"x": np.random.normal(0.2, 1.0, 600)})
+    # heavy drift
+    cur_large = pd.DataFrame({"x": np.random.normal(1.0, 1.0, 600)})
+
+    det_small = DataDriftDetector(ref, cur_small)
+    det_large = DataDriftDetector(ref, cur_large)
+
+    ks_small = det_small.compute_numeric_drift()["x"]["ks"]["statistic"]
+    ks_large = det_large.compute_numeric_drift()["x"]["ks"]["statistic"]
+
+    assert np.isfinite(ks_small) and np.isfinite(ks_large)
+    assert ks_large > ks_small
+
+def test_ks_identical_distributions_near_zero():
+    np.random.seed(21)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 500)})
+    cur = ref.copy()
+
+    det = DataDriftDetector(ref, cur)
+    ks = det.compute_numeric_drift()["x"]["ks"]["statistic"]
+
+    # same distribution should yield KS statistic near zero
+    assert ks < 0.05
+
+def test_ks_not_present_for_categorical_features():
+    np.random.seed(0)
+    ref = pd.DataFrame({"cat": np.random.choice(["A", "B", "C"], size=300)})
+    cur = pd.DataFrame({"cat": np.random.choice(["A", "B", "C"], size=300)})
+
+    det = DataDriftDetector(ref, cur)
+    cat_out = det.compute_categorical_drift()
+
+    assert "cat" in cat_out
+    # no ks in categorical
+    assert "ks" not in cat_out["cat"]
+
+def test_ks_handles_nans_and_empty_after_dropna():
+    # scene 1: one side has all NaN → KS statistic should be NaN and p-value None
+    ref = pd.DataFrame({"x": [np.nan, np.nan, np.nan]})
+    cur = pd.DataFrame({"x": [1.0, 2.0, 3.0]})
+
+    det = DataDriftDetector(ref, cur)
+    ks_obj = det.compute_numeric_drift()["x"]["ks"]
+    _assert_ks_result_struct(ks_obj)
+    assert np.isnan(ks_obj["statistic"])
+    assert ks_obj["pvalue"] is None
+    assert ks_obj["n_ref"] == 0 or ks_obj["n_cur"] == 0
+
+    # scene 2: both sides have some NaN but also some valid data → KS should compute on valid data only
+    ref2 = pd.DataFrame({"x": [np.nan, 0.0, 1.0, 2.0, np.nan]})
+    cur2 = pd.DataFrame({"x": [np.nan, 0.5, 1.5, np.nan, 2.5]})
+
+    det2 = DataDriftDetector(ref2, cur2)
+    ks_obj2 = det2.compute_numeric_drift()["x"]["ks"]
+    _assert_ks_result_struct(ks_obj2)
+    assert ks_obj2["n_ref"] > 0 and ks_obj2["n_cur"] > 0
+    assert np.isfinite(ks_obj2["statistic"])
+
+def test_compute_structure_includes_ks_for_numeric():
+    np.random.seed(1234)
+    ref = pd.DataFrame({
+        "x": np.random.normal(0, 1, 80),
+        "cat": np.random.choice(["A", "B"], size=80),
+    })
+    cur = pd.DataFrame({
+        "x": np.random.normal(0.3, 1.2, 80),
+        "cat": np.random.choice(["A", "B"], size=80),
+    })
+
+    det = DataDriftDetector(ref, cur)
+    out = det.compute()
+
+    assert "x" in out["numeric_features"]
+    assert "ks" in out["numeric_features"]["x"]
+    _assert_ks_result_struct(out["numeric_features"]["x"]["ks"])
+
+    assert "cat" in out["categorical_features"]
+    assert "ks" not in out["categorical_features"]["cat"]
 
 # --------------------------------------------------------
 # Robustness: categorical column containing mixed types
