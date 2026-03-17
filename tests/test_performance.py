@@ -13,11 +13,35 @@ from sklearn.metrics import (
     root_mean_squared_error,
     mean_absolute_error,
     roc_auc_score,
+    r2_score
 )
 
 from momo_ml.metrics.ks import compute_ks
 from momo_ml.monitor.performance import PerformanceEvaluator
 
+
+# ---------------------------
+#  Helpers for expected values (mirror implementation)
+# ---------------------------
+def _smape(y_true: np.ndarray, y_pred: np.ndarray, epsilon: float = 1e-8, as_percentage: bool = True) -> float:
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    denom = np.abs(y_true) + np.abs(y_pred) + epsilon
+    smape = np.mean(2.0 * np.abs(y_pred - y_true) / denom)
+    if as_percentage:
+        smape *= 100.0
+    return float(smape)
+
+
+def _huber_loss(y_true: np.ndarray, y_pred: np.ndarray, delta: float = 1.0) -> float:
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    r = y_true - y_pred
+    abs_r = np.abs(r)
+    quad = 0.5 * (r ** 2)
+    lin = delta * (abs_r - 0.5 * delta)
+    loss = np.where(abs_r <= delta, quad, lin)
+    return float(np.mean(loss))
 
 # ---------------------------
 #  Fixtures
@@ -172,6 +196,78 @@ def test_regression_evaluate(regression_data):
     assert result["delta"]["rmse"] == pytest.approx(expected_cur_rmse - expected_ref_rmse)
     assert result["delta"]["mae"] == pytest.approx(expected_cur_mae - expected_ref_mae)
 
+    expected_ref_r2 = r2_score(y_ref, p_ref)
+    expected_cur_r2 = r2_score(y_cur, p_cur)
+    np.testing.assert_almost_equal(result["reference"]["r2"], expected_ref_r2)
+    np.testing.assert_almost_equal(result["current"]["r2"], expected_cur_r2)
+    assert result["delta"]["r2"] == pytest.approx(expected_cur_r2 - expected_ref_r2)
+
+    expected_ref_smape = _smape(y_ref, p_ref, epsilon=1e-8, as_percentage=True)
+    expected_cur_smape = _smape(y_cur, p_cur, epsilon=1e-8, as_percentage=True)
+    np.testing.assert_almost_equal(result["reference"]["smape"], expected_ref_smape)
+    np.testing.assert_almost_equal(result["current"]["smape"], expected_cur_smape)
+    assert result["delta"]["smape"] == pytest.approx(expected_cur_smape - expected_ref_smape)
+
+    abs_err_ref = np.abs(y_ref - p_ref)
+    abs_err_cur = np.abs(y_cur - p_cur)
+    expected_ref_p90 = float(np.quantile(abs_err_ref, 0.90))
+    expected_ref_p95 = float(np.quantile(abs_err_ref, 0.95))
+    expected_cur_p90 = float(np.quantile(abs_err_cur, 0.90))
+    expected_cur_p95 = float(np.quantile(abs_err_cur, 0.95))
+
+    np.testing.assert_almost_equal(result["reference"]["p90_error"], expected_ref_p90)
+    np.testing.assert_almost_equal(result["reference"]["p95_error"], expected_ref_p95)
+    np.testing.assert_almost_equal(result["current"]["p90_error"], expected_cur_p90)
+    np.testing.assert_almost_equal(result["current"]["p95_error"], expected_cur_p95)
+
+    assert result["delta"]["p90_error"] == pytest.approx(expected_cur_p90 - expected_ref_p90)
+    assert result["delta"]["p95_error"] == pytest.approx(expected_cur_p95 - expected_ref_p95)
+
+    expected_ref_huber = _huber_loss(y_ref, p_ref, delta=1.0)
+    expected_cur_huber = _huber_loss(y_cur, p_cur, delta=1.0)
+    np.testing.assert_almost_equal(result["reference"]["huber_loss"], expected_ref_huber)
+    np.testing.assert_almost_equal(result["current"]["huber_loss"], expected_cur_huber)
+    assert result["delta"]["huber_loss"] == pytest.approx(expected_cur_huber - expected_ref_huber)
+
+
+def test_regression_smape_ratio_and_huber_delta(regression_data):
+    """SMAPE as ratio (0~2) and Huber delta sensitivity."""
+    ref_df, cur_df = regression_data
+
+    # Use non-default configs
+    evaluator = PerformanceEvaluator(
+        ref_df, cur_df, "label", "pred",
+        task_type="regression",
+        smape_as_percentage=False,  # ratio in [0, 2]
+        huber_delta=0.5,            # smaller delta -> more linear penalty for residuals > 0.5
+    )
+    result = evaluator.evaluate()
+
+    y_ref = ref_df["label"].values
+    p_ref = ref_df["pred"].values
+    y_cur = cur_df["label"].values
+    p_cur = cur_df["pred"].values
+
+    # SMAPE ratio checks
+    expected_ref_smape_ratio = _smape(y_ref, p_ref, epsilon=1e-8, as_percentage=False)
+    expected_cur_smape_ratio = _smape(y_cur, p_cur, epsilon=1e-8, as_percentage=False)
+    assert 0.0 <= result["reference"]["smape"] <= 2.0
+    assert 0.0 <= result["current"]["smape"] <= 2.0
+    np.testing.assert_almost_equal(result["reference"]["smape"], expected_ref_smape_ratio)
+    np.testing.assert_almost_equal(result["current"]["smape"], expected_cur_smape_ratio)
+
+    # Huber with smaller delta vs larger delta: smaller delta should generally yield
+    # a larger (or equal) loss due to earlier linear transition.
+    evaluator_larger_delta = PerformanceEvaluator(
+        ref_df, cur_df, "label", "pred",
+        task_type="regression",
+        huber_delta=2.0,
+        smape_as_percentage=False,
+    )
+    result_larger_delta = evaluator_larger_delta.evaluate()
+
+    assert result["reference"]["huber_loss"] <= result_larger_delta["reference"]["huber_loss"] - 1e-12
+    assert result["current"]["huber_loss"] <= result_larger_delta["current"]["huber_loss"] - 1e-12
 
 # ---------------------------
 #  Binary classification (labels 0/1)

@@ -11,6 +11,7 @@ from sklearn.metrics import (
     f1_score,
     root_mean_squared_error,
     mean_absolute_error,
+    r2_score,
 )
 
 from momo_ml.metrics.ks import compute_ks
@@ -22,7 +23,7 @@ class PerformanceEvaluator:
 
     Supports:
     - Binary & multiclass classification: AUC, Accuracy, Precision, Recall, F1, KS
-    - Regression: RMSE, MAE
+    - Regression: RMSE, MAE, R2, SMAPE, P90/P95 Error, Huber Loss
 
     Parameters
     ----------
@@ -38,6 +39,14 @@ class PerformanceEvaluator:
         to convert your labels to 0 (negative) and 1 (positive) before passing data.
     pred_col : str
         Column name of model predictions.
+    task_type : Optional[str]
+        "classification" or "regression" or None (auto-detect)
+    huber_delta : float
+        Threshold for huber loss. Default 1.0
+    smape_as_percentage : bool
+        If True, returns SMAPE as percentage in [0, 200]. If False, returns ratio in [0, 2]. Default True.
+    smape_epsilon : float
+        Small value to avoid division by zero in SMAPE. Default 1e-8.
     """
 
     def __init__(
@@ -47,6 +56,9 @@ class PerformanceEvaluator:
         label_col: Optional[str],
         pred_col: Optional[str],
         task_type: Optional[str] = None,
+        huber_delta: float = 1.0,
+        smape_as_percentage: bool = True,
+        smape_epsilon: float = 1e-8,
     ):
         self.ref_df = ref_df.copy()
         self.cur_df = cur_df.copy()
@@ -55,6 +67,9 @@ class PerformanceEvaluator:
         self.task_type = (
             task_type  # "classification" or "regression" or None (auto-detect)
         )
+        self.huber_delta = float(huber_delta)
+        self.smape_as_percentage = bool(smape_as_percentage)
+        self.smape_epsilon = float(smape_epsilon)
 
     # -------------------------------------------------------
     # Utility
@@ -74,6 +89,41 @@ class PerformanceEvaluator:
         """Detect classification vs regression based on label dtype."""
         y = self.ref_df[self.label_col].dropna()
         return y.nunique() <= 20
+
+    # -------------------------------------------------------
+    # Helpers for regression metrics
+    # -------------------------------------------------------
+    @staticmethod
+    def _smape(y_true: np.ndarray, y_pred: np.ndarray, epsilon: float = 1e-8, as_percentage: bool = True) -> float:
+        """
+        Symmetric Mean Absolute Percentage Error.
+        Range: [0, 2] if ratio; [0, 200] if percentage.
+        """
+        y_true = np.asarray(y_true)
+        y_pred = np.asarray(y_pred)
+        denom = np.abs(y_true) + np.abs(y_pred) + epsilon
+        smape = np.mean(2.0 * np.abs(y_pred - y_true) / denom)
+        if as_percentage:
+            smape *= 100.0
+        return smape
+
+    @staticmethod
+    def _huber_loss(y_true: np.ndarray, y_pred: np.ndarray, delta: float = 1.0) -> float:
+        """
+        Huber loss with parameter delta.
+        For residual r:
+          if |r| <= delta: 0.5 * r^2
+          else           : delta * (|r| - 0.5 * delta)
+        Returns mean loss over samples.
+        """
+        y_true = np.asarray(y_true)
+        y_pred = np.asarray(y_pred)
+        r = y_true - y_pred
+        abs_r = np.abs(r)
+        quad = 0.5 * (r ** 2)
+        lin = delta * (abs_r - 0.5 * delta)
+        loss = np.where(abs_r <= delta, quad, lin)
+        return float(np.mean(loss))
 
     # -------------------------------------------------------
     # Classification metrics
@@ -169,9 +219,26 @@ class PerformanceEvaluator:
         rmse = root_mean_squared_error(y_true, y_pred)
         mae = mean_absolute_error(y_true, y_pred)
 
+        r2 = r2_score(y_true, y_pred)
+        smape = self._smape(
+            y_true, y_pred,
+            epsilon=self.smape_epsilon,
+            as_percentage=self.smape_as_percentage,
+        )
+        abs_err = np.abs(y_true - y_pred)
+        p90_err = float(np.quantile(abs_err, 0.90))
+        p95_err = float(np.quantile(abs_err, 0.95))
+        huber = self._huber_loss(y_true, y_pred, delta=self.huber_delta)
+
+
         return {
             "rmse": rmse,
             "mae": mae,
+            "r2": r2,
+            "smape": smape,
+            "p90_error": p90_err,
+            "p95_error": p95_err,
+            "huber_loss": huber,
         }
 
     # -------------------------------------------------------
