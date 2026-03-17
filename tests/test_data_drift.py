@@ -1,11 +1,12 @@
 
 import pytest
+import math
 import numpy as np
 import pandas as pd
 from numpy.testing import assert_allclose
 
 from momo_ml.monitor.data_drift import DataDriftDetector
-from momo_ml.metrics.psi import compute_psi
+from momo_ml.metrics.js import compute_js
 
 
 # --------------------------------------------------------
@@ -325,6 +326,141 @@ def test_compute_structure_includes_ks_for_numeric():
 
     assert "cat" in out["categorical_features"]
     assert "ks" not in out["categorical_features"]["cat"]
+
+# --------------------------------------------------------
+# JS divergence tests (standalone + optional integration)
+# --------------------------------------------------------
+# ---------- Standalone compute_js tests ----------
+
+def test_js_numeric_basic():
+    np.random.seed(123)
+    ref = np.random.normal(0, 1, 500)
+    cur = np.random.normal(0.2, 1.1, 500)
+    val = compute_js(ref, cur, buckets=10, base="2", epsilon=1e-12, handle_outside="clip")
+    assert_is_finite_number(val)
+    # JS >= 0
+    assert val >= 0.0
+
+def test_js_categorical_basic():
+    ref = ["A", "B", "A", "C"] * 50
+    cur = ["A", "B", "B", "C"] * 50
+    val = compute_js(ref, cur, base="2")
+    assert_is_finite_number(val)
+    assert val >= 0.0
+
+def test_js_identical_distributions_near_zero_numeric():
+    np.random.seed(42)
+    ref = np.random.normal(0, 1, 400)
+    cur = ref.copy()
+    # base=2 JS ∈ [0, 1]
+    val = compute_js(ref, cur, base="2")
+    assert val < 1e-6
+
+def test_js_identical_distributions_near_zero_categorical():
+    ref = ["A", "B", "A", "C"] * 40
+    cur = ref.copy()
+    val = compute_js(ref, cur, base="2")
+    assert val < 1e-6
+
+def test_js_strength_monotonicity_numeric():
+    np.random.seed(7)
+    ref = np.random.normal(0, 1, 600)
+    cur_small = np.random.normal(0.2, 1.0, 600)
+    cur_large = np.random.normal(1.0, 1.0, 600)
+    js_small = compute_js(ref, cur_small, base="2")
+    js_large = compute_js(ref, cur_large, base="2")
+    assert js_small >= 0 and js_large >= 0
+    assert js_large > js_small  # high drift high js
+
+def test_js_parameters_passing_and_bases():
+    np.random.seed(99)
+    ref = np.random.normal(0, 1, 300)
+    cur = np.random.normal(0.1, 1.2, 300)
+
+    # all non-negative
+    val_e = compute_js(ref, cur, base="e", buckets=8, epsilon=1e-10, handle_outside="clip")
+    val_2 = compute_js(ref, cur, base="2", buckets=8, epsilon=1e-10, handle_outside="clip")
+    val_10 = compute_js(ref, cur, base="10", buckets=8, epsilon=1e-10, handle_outside="clip")
+
+    assert_is_finite_number(val_e)
+    assert_is_finite_number(val_2)
+    assert_is_finite_number(val_10)
+    assert val_e >= 0 and val_2 >= 0 and val_10 >= 0
+
+def test_js_handles_nans_and_empty_after_dropna():
+    # one side has all NaN
+    ref = [np.nan, np.nan, np.nan]
+    cur = [1.0, 2.0, 3.0]
+    val = compute_js(ref, cur)
+    assert math.isnan(val)
+
+    # both sides have nan but still valid sample
+    ref2 = [np.nan, 0.0, 1.0, np.nan, 2.0]
+    cur2 = [np.nan, 0.5, 1.5, 2.5, np.nan]
+    val2 = compute_js(ref2, cur2)
+    assert_is_finite_number(val2)
+
+def _has_js_in_detector(det: DataDriftDetector, out: dict, feature: str, is_numeric: bool) -> bool:
+    try:
+        if is_numeric:
+            return "js" in out["numeric_features"].get(feature, {})
+        else:
+            return "js" in out["categorical_features"].get(feature, {})
+    except Exception:
+        return False
+
+@pytest.mark.parametrize("base", ["e", "2"])
+def test_detector_js_numeric_optional(base):
+    np.random.seed(1234)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 200)})
+    cur = pd.DataFrame({"x": np.random.normal(0.3, 1.1, 200)})
+
+    det = DataDriftDetector(ref, cur, kl_buckets=6, kl_base=base, kl_epsilon=1e-10, kl_handle_outside="clip")
+    out = det.compute()
+
+    has_js = _has_js_in_detector(det, out, "x", is_numeric=True)
+    if not has_js:
+        pytest.skip("JS is not integrated in DataDriftDetector numeric outputs; skipping.")
+    else:
+        val = out["numeric_features"]["x"]["js"]
+        assert_is_finite_number(val)
+        assert val >= 0.0
+
+def test_detector_js_categorical_optional():
+    ref = pd.DataFrame({"cat": ["A", "B", "A", "C"] * 40})
+    cur = pd.DataFrame({"cat": ["A", "B", "B", "C"] * 40})
+
+    det = DataDriftDetector(ref, cur)
+    out = det.compute()
+
+    has_js = _has_js_in_detector(det, out, "cat", is_numeric=False)
+    if not has_js:
+        pytest.skip("JS is not integrated in DataDriftDetector categorical outputs; skipping.")
+    else:
+        val = out["categorical_features"]["cat"]["js"]
+        assert_is_finite_number(val)
+        assert val >= 0.0
+
+def test_detector_js_identical_near_zero_optional():
+    np.random.seed(2024)
+    ref = pd.DataFrame({"x": np.random.normal(0, 1, 300), "cat": np.random.choice(["A","B"], size=300)})
+    cur = ref.copy()
+
+    det = DataDriftDetector(ref, cur, kl_base="2")
+    out = det.compute()
+
+    # numerical JS
+    has_js_num = _has_js_in_detector(det, out, "x", is_numeric=True)
+    if has_js_num:
+        js_num = out["numeric_features"]["x"]["js"]
+        assert js_num < 1e-6
+    # categorical JS
+    has_js_cat = _has_js_in_detector(det, out, "cat", is_numeric=False)
+    if has_js_cat:
+        js_cat = out["categorical_features"]["cat"]["js"]
+        assert js_cat < 1e-6
+    if not (has_js_num or has_js_cat):
+        pytest.skip("JS not integrated in DataDriftDetector outputs; skipping.")
 
 # --------------------------------------------------------
 # Robustness: categorical column containing mixed types
