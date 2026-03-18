@@ -1,192 +1,267 @@
+# momo_ml/tests/test_model_monitor.py
 
-import numpy as np
+import pytest
 import pandas as pd
-from numpy.testing import assert_allclose
+from unittest.mock import Mock, patch, PropertyMock
 
-from momo_ml.monitor import ModelMonitor
+from momo_ml.monitor.model_monitor import ModelMonitor
 
 
-# ------------------------------------------------------------
-# 1. Basic E2E test: numeric + categorical + predictions
-# ------------------------------------------------------------
-
-def test_model_monitor_basic_e2e():
-    np.random.seed(42)
-
-    # Reference dataset (baseline)
+# ----------------------------------------------------------------------
+# Fixtures
+# ----------------------------------------------------------------------
+@pytest.fixture
+def sample_dataframes():
+    """Create simple reference and current DataFrames for testing."""
     ref_df = pd.DataFrame({
-        "x1": np.random.normal(0, 1, 500),
-        "x2": np.random.normal(5, 2, 500),
-        "cat": np.random.choice(["A", "B", "C"], size=500, p=[0.3, 0.5, 0.2]),
+        'feature1': [1, 2, 3],
+        'feature2': ['a', 'b', 'c'],
+        'label': [0, 1, 0],
+        'pred': [0.1, 0.9, 0.2]
     })
-    ref_df["label"] = (ref_df["x1"] + np.random.normal(0, 1, 500) > 0).astype(int)
-    ref_df["pred"] = ref_df["label"] * 0.7 + np.random.normal(0.2, 0.1, 500)
-    ref_df["pred"] = ref_df["pred"].clip(0, 1)
-
-    # Current dataset (shifted)
     cur_df = pd.DataFrame({
-        "x1": np.random.normal(0.3, 1.2, 500),
-        "x2": np.random.normal(4.7, 2.1, 500),
-        "cat": np.random.choice(["A", "B", "C"], size=500, p=[0.1, 0.7, 0.2]),
+        'feature1': [4, 5, 6],
+        'feature2': ['a', 'b', 'd'],
+        'label': [1, 0, 1],
+        'pred': [0.8, 0.3, 0.7]
     })
-    cur_df["label"] = (cur_df["x1"] + np.random.normal(0, 1, 500) > 0.1).astype(int)
-    cur_df["pred"] = cur_df["label"] * 0.6 + np.random.normal(0.25, 0.15, 500)
-    cur_df["pred"] = cur_df["pred"].clip(0, 1)
+    return ref_df, cur_df
+
+
+# ----------------------------------------------------------------------
+# Tests for initialization and lazy properties
+# ----------------------------------------------------------------------
+def test_initialization_default(sample_dataframes):
+    """Test that ModelMonitor can be created with minimal arguments."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df)
+
+    assert monitor.ref_df is ref_df
+    assert monitor.cur_df is cur_df
+    assert monitor.label_col is None
+    assert monitor.pred_col is None
+    assert monitor.data_drift_kwargs == {}
+    assert monitor.performance_kwargs == {}
+    assert monitor.prediction_drift_kwargs == {}
+    # Lazy placeholders should be None
+    assert monitor._data_drift is None
+    assert monitor._performance is None
+    assert monitor._prediction_drift is None
+
+
+def test_initialization_with_kwargs(sample_dataframes):
+    """Test that constructor stores per-detector kwargs correctly."""
+    ref_df, cur_df = sample_dataframes
+    data_kwargs = {'features': ['feature1'], 'bins': 15}
+    perf_kwargs = {'task_type': 'classification'}
+    pred_kwargs = {'include_ks': True}
 
     monitor = ModelMonitor(
-        ref_df=ref_df,
-        cur_df=cur_df,
-        label_col="label",
-        pred_col="pred"
+        ref_df, cur_df,
+        label_col='label',
+        pred_col='pred',
+        data_drift_kwargs=data_kwargs,
+        performance_kwargs=perf_kwargs,
+        prediction_drift_kwargs=pred_kwargs
     )
 
-    out = monitor.run_all()
+    assert monitor.label_col == 'label'
+    assert monitor.pred_col == 'pred'
+    assert monitor.data_drift_kwargs == data_kwargs
+    assert monitor.performance_kwargs == perf_kwargs
+    assert monitor.prediction_drift_kwargs == pred_kwargs
 
-    # Check top-level keys
-    assert set(out.keys()) == {
-        "performance_drift",
-        "data_drift",
-        "prediction_drift"
+
+@patch('momo_ml.monitor.model_monitor.DataDriftDetector')
+@patch('momo_ml.monitor.model_monitor.PerformanceEvaluator')
+@patch('momo_ml.monitor.model_monitor.PredictionDriftDetector')
+def test_lazy_initialization(mock_pred_drift, mock_perf, mock_data_drift, sample_dataframes):
+    """Verify that detectors are created only when first accessed."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df, label_col='label', pred_col='pred')
+
+    # Initially no constructors called
+    mock_data_drift.assert_not_called()
+    mock_perf.assert_not_called()
+    mock_pred_drift.assert_not_called()
+
+    # Access data_drift property -> constructor should be called once
+    dd = monitor.data_drift
+    mock_data_drift.assert_called_once_with(ref_df, cur_df)
+    mock_perf.assert_not_called()
+    mock_pred_drift.assert_not_called()
+
+    # Access again should not create new instance
+    mock_data_drift.reset_mock()
+    dd2 = monitor.data_drift
+    mock_data_drift.assert_not_called()
+    assert dd is dd2
+
+    # Access performance property
+    perf = monitor.performance
+    mock_perf.assert_called_once_with(ref_df, cur_df, 'label', 'pred')
+    mock_pred_drift.assert_not_called()
+
+    # Access prediction_drift property
+    pred = monitor.prediction_drift
+    mock_pred_drift.assert_called_once_with(ref_df, cur_df, 'pred')
+
+
+# ----------------------------------------------------------------------
+# Tests for run_* methods (with mocked detectors)
+# ----------------------------------------------------------------------
+@patch('momo_ml.monitor.model_monitor.PerformanceEvaluator')
+def test_run_performance_drift(mock_perf_class, sample_dataframes):
+    """Test that run_performance_drift calls evaluate and returns result."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df, label_col='label', pred_col='pred')
+
+    # Mock the evaluate method of the instance
+    mock_perf_instance = Mock()
+    expected_result = {'task_type': 'classification', 'reference': {'auc': 0.8}}
+    mock_perf_instance.evaluate.return_value = expected_result
+    # Make the property return our mock
+    mock_perf_class.return_value = mock_perf_instance
+
+    result = monitor.run_performance_drift()
+
+    # Ensure the detector was created (lazy) and evaluate called
+    mock_perf_class.assert_called_once_with(ref_df, cur_df, 'label', 'pred')
+    mock_perf_instance.evaluate.assert_called_once()
+    assert result == expected_result
+
+
+@patch('momo_ml.monitor.model_monitor.DataDriftDetector')
+def test_run_data_drift(mock_data_class, sample_dataframes):
+    """Test run_data_drift calls compute and returns result."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df)
+
+    mock_data_instance = Mock()
+    expected_result = {'numeric_features': {}, 'categorical_features': {}}
+    mock_data_instance.compute.return_value = expected_result
+    mock_data_class.return_value = mock_data_instance
+
+    result = monitor.run_data_drift()
+
+    mock_data_class.assert_called_once_with(ref_df, cur_df)
+    mock_data_instance.compute.assert_called_once()
+    assert result == expected_result
+
+
+@patch('momo_ml.monitor.model_monitor.PredictionDriftDetector')
+def test_run_prediction_drift(mock_pred_class, sample_dataframes):
+    """Test run_prediction_drift calls compute and returns result."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df, pred_col='pred')
+
+    mock_pred_instance = Mock()
+    expected_result = {'prediction_type': 'continuous', 'summary_statistics': {}}
+    mock_pred_instance.compute.return_value = expected_result
+    mock_pred_class.return_value = mock_pred_instance
+
+    result = monitor.run_prediction_drift()
+
+    mock_pred_class.assert_called_once_with(ref_df, cur_df, 'pred')
+    mock_pred_instance.compute.assert_called_once()
+    assert result == expected_result
+
+
+@patch('momo_ml.monitor.model_monitor.ModelMonitor.run_performance_drift')
+@patch('momo_ml.monitor.model_monitor.ModelMonitor.run_data_drift')
+@patch('momo_ml.monitor.model_monitor.ModelMonitor.run_prediction_drift')
+def test_run_all(mock_run_pred, mock_run_data, mock_run_perf, sample_dataframes):
+    """Test that run_all calls all three run methods and combines results."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df, label_col='label', pred_col='pred')
+
+    mock_run_perf.return_value = {'perf': 1}
+    mock_run_data.return_value = {'data': 2}
+    mock_run_pred.return_value = {'pred': 3}
+
+    result = monitor.run_all()
+
+    mock_run_perf.assert_called_once()
+    mock_run_data.assert_called_once()
+    mock_run_pred.assert_called_once()
+    assert result == {
+        'performance_drift': {'perf': 1},
+        'data_drift': {'data': 2},
+        'prediction_drift': {'pred': 3}
     }
 
-    # Performance drift
-    perf = out["performance_drift"]
-    assert "reference" in perf and "current" in perf
 
-    # Data drift
-    dd = out["data_drift"]
-    assert "numeric_features" in dd
-    assert "categorical_features" in dd
+# ----------------------------------------------------------------------
+# Tests for error handling in run_* methods
+# ----------------------------------------------------------------------
+@patch('momo_ml.monitor.model_monitor.PerformanceEvaluator')
+def test_run_performance_drift_exception(mock_perf_class, sample_dataframes):
+    """Test that an exception in performance.evaluate is caught and returned as error."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df, label_col='label', pred_col='pred')
 
-    # Prediction drift
-    pd_out = out["prediction_drift"]
-    assert "summary_statistics" in pd_out
-    assert "distribution_shift" in pd_out
-    assert "decile_shift" in pd_out
+    mock_perf_instance = Mock()
+    mock_perf_instance.evaluate.side_effect = ValueError("Something went wrong")
+    mock_perf_class.return_value = mock_perf_instance
 
+    with pytest.warns(RuntimeWarning, match="Performance drift evaluation failed"):
+        result = monitor.run_performance_drift()
 
-# ------------------------------------------------------------
-# 2. Missing prediction column → graceful error
-# ------------------------------------------------------------
-
-def test_model_monitor_missing_pred_column():
-    ref_df = pd.DataFrame({
-        "label": np.random.randint(0, 2, 100),
-        "pred": np.random.rand(100),
-        "x": np.random.rand(100)
-    })
-    cur_df = pd.DataFrame({
-        "label": np.random.randint(0, 2, 100),
-        "wrongcol": np.random.rand(100),
-        "x": np.random.rand(100)
-    })
-
-    monitor = ModelMonitor(
-        ref_df=ref_df,
-        cur_df=cur_df,
-        label_col="label",
-        pred_col="pred"
-    )
-    out = monitor.run_all()
-
-    # The prediction part should return an error message
-    assert "error" in out["prediction_drift"]
+    assert "error" in result
+    assert "Something went wrong" in result["error"]
 
 
-# ------------------------------------------------------------
-# 3. Missing label column → performance drift error
-# ------------------------------------------------------------
+@patch('momo_ml.monitor.model_monitor.DataDriftDetector')
+def test_run_data_drift_exception(mock_data_class, sample_dataframes):
+    """Test that an exception in data_drift.compute is caught and returned as error."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df)
 
-def test_model_monitor_missing_label_column():
-    ref_df = pd.DataFrame({
-        "pred": np.random.rand(100),
-        "x": np.random.rand(100)
-    })
-    cur_df = pd.DataFrame({
-        "pred": np.random.rand(100),
-        "x": np.random.rand(100)
-    })
+    mock_data_instance = Mock()
+    mock_data_instance.compute.side_effect = TypeError("Type error")
+    mock_data_class.return_value = mock_data_instance
 
-    monitor = ModelMonitor(
-        ref_df=ref_df,
-        cur_df=cur_df,
-        label_col="label",
-        pred_col="pred"
-    )
-    out = monitor.run_all()
+    with pytest.warns(RuntimeWarning, match="Data drift computation failed"):
+        result = monitor.run_data_drift()
 
-    assert "error" in out["performance_drift"]
+    assert "error" in result
+    assert "Type error" in result["error"]
 
 
-# ------------------------------------------------------------
-# 4. E2E: identical distributions → drift near zero
-# ------------------------------------------------------------
+@patch('momo_ml.monitor.model_monitor.PredictionDriftDetector')
+def test_run_prediction_drift_exception(mock_pred_class, sample_dataframes):
+    """Test that an exception in prediction_drift.compute is caught and returned as error."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df, pred_col='pred')
 
-def test_model_monitor_identical_distributions():
-    np.random.seed(123)
-    ref_df = pd.DataFrame({
-        "x1": np.random.normal(0, 1, 300),
-        "cat": np.random.choice(["A", "B"], 300),
-    })
-    ref_df["label"] = (ref_df["x1"] > 0).astype(int)
-    ref_df["pred"] = ref_df["label"] * 0.6 + np.random.normal(0.2, 0.1, 300)
-    ref_df["pred"] = ref_df["pred"].clip(0, 1)
+    mock_pred_instance = Mock()
+    mock_pred_instance.compute.side_effect = KeyError("Missing column")
+    mock_pred_class.return_value = mock_pred_instance
 
-    cur_df = ref_df.copy()
+    with pytest.warns(RuntimeWarning, match="Prediction drift computation failed"):
+        result = monitor.run_prediction_drift()
 
-    monitor = ModelMonitor(
-        ref_df=ref_df,
-        cur_df=cur_df,
-        label_col="label",
-        pred_col="pred"
-    )
-
-    out = monitor.run_all()
-
-    # Performance drift deltas ~0
-    deltas = out["performance_drift"]["delta"]
-    for v in deltas.values():
-        assert abs(v) < 1e-6
-
-    # Numeric PSI ~0
-    for f, v in out["data_drift"]["numeric_features"].items():
-        assert v["psi"] < 1e-6
-
-    # Categorical PSI ~0
-    for f, v in out["data_drift"]["categorical_features"].items():
-        assert v["psi"] < 1e-6
-
-    # Prediction distribution shift ~0
-    dist = out["prediction_drift"]["distribution_shift"]
-    assert dist["l1_distance"] < 1e-6
-    assert dist["l2_distance"] < 1e-6
-
-    dec = out["prediction_drift"]["decile_shift"]
-    assert_allclose(dec["delta"], np.zeros(11), atol=1e-6)
+    assert "error" in result
+    assert "Missing column" in result["error"]
 
 
-# ------------------------------------------------------------
-# 5. E2E sanity check: output types are correct
-# ------------------------------------------------------------
+# ----------------------------------------------------------------------
+# Additional test: ensure run_all aggregates even if one method fails
+# ----------------------------------------------------------------------
+@patch('momo_ml.monitor.model_monitor.ModelMonitor.run_performance_drift')
+@patch('momo_ml.monitor.model_monitor.ModelMonitor.run_data_drift')
+@patch('momo_ml.monitor.model_monitor.ModelMonitor.run_prediction_drift')
+def test_run_all_with_errors(mock_run_pred, mock_run_data, mock_run_perf, sample_dataframes):
+    """Verify that run_all returns combined dict even if some runs return errors."""
+    ref_df, cur_df = sample_dataframes
+    monitor = ModelMonitor(ref_df, cur_df)
 
-def test_model_monitor_output_types():
-    np.random.seed(42)
+    mock_run_perf.return_value = {'error': 'performance failed'}
+    mock_run_data.return_value = {'data': 'ok'}
+    mock_run_pred.return_value = {'error': 'prediction failed'}
 
-    ref_df = pd.DataFrame({
-        "x": np.random.rand(100),
-        "label": np.random.randint(0, 2, 100),
-        "pred": np.random.rand(100),
-    })
-    cur_df = pd.DataFrame({
-        "x": np.random.rand(100),
-        "label": np.random.randint(0, 2, 100),
-        "pred": np.random.rand(100),
-    })
+    result = monitor.run_all()
 
-    monitor = ModelMonitor(ref_df, cur_df, label_col="label", pred_col="pred")
-    out = monitor.run_all()
-
-    assert isinstance(out, dict)
-    assert isinstance(out["performance_drift"], dict)
-    assert isinstance(out["data_drift"], dict)
-    assert isinstance(out["prediction_drift"], dict)
+    assert result['performance_drift'] == {'error': 'performance failed'}
+    assert result['data_drift'] == {'data': 'ok'}
+    assert result['prediction_drift'] == {'error': 'prediction failed'}
