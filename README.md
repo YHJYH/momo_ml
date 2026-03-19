@@ -1,6 +1,6 @@
 [![PyPI version](https://img.shields.io/pypi/v/momo-ml)](https://pypi.org/project/momo-ml/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/momo-ml)](https://pypi.org/project/momo-ml/)
-![License](https://img.shields.io/pypi/l/momo-ml)
+[![License](https://img.shields.io/pypi/l/momo-ml)](https://github.com/YHJYH/momo_ml/blob/main/LICENSE)
 
 # momo-ml
 
