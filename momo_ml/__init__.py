@@ -4,4 +4,4 @@ __all__ = [
     "ModelMonitor",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.4"
