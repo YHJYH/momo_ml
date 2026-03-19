@@ -11,8 +11,11 @@ from momo_ml.metrics.wd import compute_wd
 
 class DataDriftDetector:
     """
-    Detects data drift between reference and current datasets.
-    Supports numeric and categorical features.
+    Evaluate data drift between reference and current datasets.
+
+    Supports:
+    - Numeric features: PSI, KL divergence, JS divergence, KS statistic, Wasserstein distance
+    - Categorical features: PSI, KL divergence, JS divergence, Wasserstein distance
 
     Parameters
     ----------
@@ -22,6 +25,15 @@ class DataDriftDetector:
         Current dataset to compare.
     features : List[str], optional
         If None, the intersection of columns in both datasets will be used.
+    kl_buckets : int
+        Number of buckets used when computing KL/JS divergence for continuous variables.
+    kl_base : {"e", "2", "10"}
+        Logarithm base used for KL/JS divergence.
+    kl_epsilon : float
+        Small value to avoid zero-probability when computing KL/JS.
+    kl_handle_outside : str
+        How to handle data outside bucket boundaries ("ignore", "clip", etc.).
+
     """
 
     def __init__(
