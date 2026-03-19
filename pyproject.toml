@@ -9,17 +9,19 @@ description = "A production-oriented model monitoring library for detecting perf
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
-    {name = "YHJYH"}  # 可加 email：, email = "xxx@example.com"
+    { name = "Justin Jia", email = "justinjia0201@gmail.com" }
 ]
 license = {file = "LICENSE"}
 keywords = ["model monitoring", "drift detection", "MLOps", "machine learning", "analytics"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 
