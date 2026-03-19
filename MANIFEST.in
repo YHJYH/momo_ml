@@ -7,7 +7,7 @@ include pyproject.toml
 include setup.cfg
 include MANIFEST.in
 
-# Include report templates if你希望打进包（你有 html_template.html）
+# Include report templates
 recursive-include momo_ml/report *.html
 
 # Exclude development/test/example artifacts
