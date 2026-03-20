@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "momo-ml"
-version = "0.1.4"
+version = "0.1.5"
 description = "A production-oriented model monitoring library for detecting performance drift, data drift, and prediction drift, with automated reporting for ML systems."
 readme = "README.md"
 requires-python = ">=3.12"
