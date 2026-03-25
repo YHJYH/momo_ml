@@ -6,9 +6,8 @@ Supports Markdown and JSON output formats.
 """
 
 import json
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional
 from datetime import datetime
-import warnings
 
 
 class ReportBuilder:
@@ -32,7 +31,11 @@ class ReportBuilder:
         }
     """
 
-    def __init__(self, monitor_results: Dict[str, Any], thresholds: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        monitor_results: Dict[str, Any],
+        thresholds: Optional[Dict[str, Any]] = None,
+    ):
         self.results = monitor_results
         self._set_default_thresholds()
         if thresholds:
@@ -134,7 +137,9 @@ class ReportBuilder:
         lines = ["### Data drift"]
 
         if incompatible:
-            lines.append(f"⚠️ **Incompatible features (skipped):** {', '.join(incompatible)}")
+            lines.append(
+                f"⚠️ **Incompatible features (skipped):** {', '.join(incompatible)}"
+            )
             lines.append("")
 
         # Numeric features
@@ -171,11 +176,15 @@ class ReportBuilder:
                 if isinstance(wd, (int, float)):
                     wd = f"{wd:.4f}"
 
-                psi_badge = self._risk_badge("psi", psi_val) if psi_val is not None else ""
+                psi_badge = (
+                    self._risk_badge("psi", psi_val) if psi_val is not None else ""
+                )
                 kl_badge = self._risk_badge("kl", kl_val) if kl_val is not None else ""
                 js_badge = self._risk_badge("js", js_val) if js_val is not None else ""
 
-                lines.append(f"| {feat} | {psi_badge} {psi} | {ks} | {kl_badge} {kl} | {js_badge} {js} | {wd} |")
+                lines.append(
+                    f"| {feat} | {psi_badge} {psi} | {ks} | {kl_badge} {kl} | {js_badge} {js} | {wd} |"
+                )
             lines.append("")
 
         # Categorical features
@@ -207,11 +216,15 @@ class ReportBuilder:
                 if isinstance(wd, (int, float)):
                     wd = f"{wd:.4f}"
 
-                psi_badge = self._risk_badge("psi", psi_val) if psi_val is not None else ""
+                psi_badge = (
+                    self._risk_badge("psi", psi_val) if psi_val is not None else ""
+                )
                 kl_badge = self._risk_badge("kl", kl_val) if kl_val is not None else ""
                 js_badge = self._risk_badge("js", js_val) if js_val is not None else ""
 
-                lines.append(f"| {feat} | {psi_badge} {psi} | {kl_badge} {kl} | {js_badge} {js} | {wd} |")
+                lines.append(
+                    f"| {feat} | {psi_badge} {psi} | {kl_badge} {kl} | {js_badge} {js} | {wd} |"
+                )
             lines.append("")
 
         return "\n".join(lines)
@@ -315,7 +328,9 @@ class ReportBuilder:
     # ------------------------------------------------------------------
     # Public methods
     # ------------------------------------------------------------------
-    def to_markdown(self, title: Optional[str] = None, include_metadata: bool = True) -> str:
+    def to_markdown(
+        self, title: Optional[str] = None, include_metadata: bool = True
+    ) -> str:
         """
         Generate a Markdown string summarizing the monitoring results.
 
