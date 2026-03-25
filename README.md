@@ -54,11 +54,16 @@ Key capabilities include:
 Ideal for detecting unexpected output shifts before they escalate into performance degradation.
 
 
-### **4. Automated Reporting**
-Unified report generation capabilities:
-- Automatically generate drift charts (matplotlib / plotly)
-- One‑click HTML or PDF report generation
-- Extensible storage or push to custom dashboards
+### **4. Report Generation**
+Generate human‑readable reports from model monitoring results, making drift analysis accessible to both technical and business stakeholders. Reports can be exported in multiple formats for different use cases.
+
+Key capabilities include:
+- **Markdown reports** – Clean, structured tables with visual risk badges (🟢🟡🔴) for quick drift assessment.
+- **JSON exports** – Machine‑readable format for integration with dashboards, CI/CD pipelines, or downstream analytics.
+- **Customizable drift thresholds** – Define your own risk levels for PSI, KL, JS, and other metrics to match your domain requirements.
+- **Comprehensive summaries** – Performance drift tables, data drift feature‑wise metrics, prediction distribution shifts, and decile analyses all in one place.
+
+Use this component to transform raw drift metrics into actionable insights, helping teams make informed decisions about model retraining or deployment.
 
 ---
 
